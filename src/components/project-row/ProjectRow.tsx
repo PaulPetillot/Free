@@ -55,7 +55,7 @@ function ProjectRow({
           {started ? (
             <>
               <Text color="black" fontWeight="bold">
-                Progress: {progress}%
+                Progress: {progress < 100 ? progress : 100}%
               </Text>
               <Progress
                 marginTop={3}

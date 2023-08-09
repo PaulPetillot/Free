@@ -1,16 +1,17 @@
 /* eslint-disable no-nested-ternary */
-import { formatEther, parseEther } from 'ethers'
+import { formatEther } from 'ethers'
 import { useParams } from 'react-router-dom'
-import { useAccount, useContractWrite } from 'wagmi'
+import { useAccount } from 'wagmi'
 
 import { Box, Button, Flex, Heading, Spinner, Text } from '@chakra-ui/react'
 
-import freeAbi from '../../../foundry/out/Free.sol/Free.json'
 import Layout from '../../components/layout/Layout'
-import { FREE_CONTRACT_ADDRESS, FREE_METHODS } from '../../utils/constants'
+import { FREE_METHODS } from '../../utils/constants'
 import { isClientOrFreelancer } from '../../utils/general'
 import useAcceptProject from '../../utils/hooks/useAcceptProject'
+import useClaim from '../../utils/hooks/useClaim'
 import useReadFree from '../../utils/hooks/useReadFree'
+import useWithdraw from '../../utils/hooks/useWithdraw'
 import { PROFILES } from '../../utils/types'
 
 type ProjectProps = {
@@ -32,6 +33,9 @@ function Project() {
     Number(id),
   ])
 
+  const { claim } = useClaim(Number(id))
+  const { withdraw } = useWithdraw(Number(id))
+
   const [
     ,
     quote,
@@ -51,10 +55,6 @@ function Project() {
   const isDeadlinePassed = deadline && deadline < Date.now() / 1000
 
   const profile = address && isClientOrFreelancer(address, client, freelancer)
-
-  const handleClaim = () => {}
-
-  const handleWithdraw = () => {}
 
   const handleCancel = () => {}
 
@@ -101,23 +101,33 @@ function Project() {
               Client: {client}
             </Text>
             <Text
-              color={started ? 'green.500' : finished ? 'red.500' : 'gray.500'}
+              color={
+                started && !finished
+                  ? 'green.500'
+                  : finished
+                  ? 'red.500'
+                  : 'gray.500'
+              }
               fontSize="lg"
             >
               Status:{' '}
-              {started ? 'Started' : finished ? 'Finished' : 'Not started'}
+              {started && !finished
+                ? 'Started'
+                : finished
+                ? 'Finished'
+                : 'Not started'}
             </Text>
           </Box>
         </Box>
 
         <Box display="flex" gap={2}>
           {started && (
-            <Button colorScheme="green" onClick={handleClaim}>
+            <Button colorScheme="green" onClick={() => claim()}>
               Claim
             </Button>
           )}
           {freelancerBalance && (
-            <Button colorScheme="red" onClick={handleWithdraw}>
+            <Button colorScheme="red" onClick={() => withdraw()}>
               Withdraw
             </Button>
           )}

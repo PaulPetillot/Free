@@ -1,5 +1,27 @@
 import { styled } from 'styled-components'
 
+export const AppContainer = styled.div`
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+  height: 100%;
+  background-image: linear-gradient(
+    to left bottom,
+    #e6d6e1,
+    #e9dee8,
+    #ede6ee,
+    #f2edf4,
+    #f7f5f9,
+    #f7f4fa,
+    #f7f4fc,
+    #f7f3fd,
+    #f4eafb,
+    #f2e0f7,
+    #f3d6f1,
+    #f4ccea
+  );
+`
+
 export const LayoutContainer = styled.div`
   display: flex;
   flex-direction: column;

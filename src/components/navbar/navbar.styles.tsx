@@ -1,10 +1,10 @@
-import styled, { keyframes } from 'styled-components';
+import styled, { keyframes } from 'styled-components'
 
 const gradientAnimation = keyframes`
   0% { background-position: 0% 50% }
   50% { background-position: 100% 50% }
   100% { background-position: 0% 50% }
-`;
+`
 
 export const NavbarContainer = styled.div`
   display: flex;
@@ -14,7 +14,7 @@ export const NavbarContainer = styled.div`
   padding: 2rem 4rem 0.8rem 4rem;
   gap: 2rem;
   margin-bottom: 4rem;
-`;
+`
 
 export const Text = styled.span`
   font-weight: bold;
@@ -33,4 +33,4 @@ export const Text = styled.span`
   background-clip: text;
   color: transparent;
   animation: ${gradientAnimation} 3s linear infinite;
-`;
+`

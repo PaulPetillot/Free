@@ -1,7 +1,10 @@
+import Navbar from '../navbar/Navbar'
+
 import {
   ChildrenContainer,
   HeaderContainer,
   LayoutContainer,
+  AppContainer,
 } from './Layout.styles'
 
 function Layout({
@@ -14,14 +17,19 @@ function Layout({
   transparent?: boolean
 }) {
   return (
-    <LayoutContainer>
-      <HeaderContainer>
-        <h1>{title}</h1>
-      </HeaderContainer>
-      <ChildrenContainer $transparent={transparent}>
-        {children}
-      </ChildrenContainer>
-    </LayoutContainer>
+    <AppContainer>
+      <Navbar />
+      <div style={{ flexGrow: 1 }}>
+        <LayoutContainer>
+          <HeaderContainer>
+            <h1>{title}</h1>
+          </HeaderContainer>
+          <ChildrenContainer $transparent={transparent}>
+            {children}
+          </ChildrenContainer>
+        </LayoutContainer>
+      </div>
+    </AppContainer>
   )
 }
 

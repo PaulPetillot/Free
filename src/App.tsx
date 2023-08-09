@@ -57,32 +57,11 @@ const router = createBrowserRouter([
 export default function App() {
   return (
     <ChakraProvider>
-      <div
-        style={{
-          backgroundImage: `linear-gradient(to left bottom,
-                   #e6d6e1, #e9dee8,
-                    #ede6ee, #f2edf4, #f7f5f9,
-                     #f7f4fa, #f7f4fc, #f7f3fd,
-                      #f4eafb, #f2e0f7, #f3d6f1, #f4ccea)`,
-        }}
-      >
-        <WagmiConfig config={config}>
-          <ConnectKitProvider mode="dark">
-            <div
-              style={{
-                display: 'flex',
-                flexDirection: 'column',
-                minHeight: '100vh',
-              }}
-            >
-              <Navbar />
-              <div style={{ flexGrow: 1 }}>
-                <RouterProvider router={router} />
-              </div>
-            </div>
-          </ConnectKitProvider>
-        </WagmiConfig>
-      </div>
+      <WagmiConfig config={config}>
+        <ConnectKitProvider mode="dark">
+          <RouterProvider router={router} />
+        </ConnectKitProvider>
+      </WagmiConfig>
     </ChakraProvider>
   )
 }
