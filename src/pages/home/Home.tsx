@@ -1,13 +1,13 @@
 import { Link } from 'react-router-dom'
 import { useAccount, useConnect } from 'wagmi'
 
+import Layout from '../../components/layout/Layout'
 import ROUTES from '../../utils/routes'
 
 import {
   BodyContainer,
   Button,
   ButtonsContainer,
-  Container,
   Header,
   Header1,
   Header2,
@@ -19,7 +19,7 @@ export default function Home() {
   const { connect, connectors } = useConnect()
 
   return (
-    <Container>
+    <Layout transparent title="">
       <HeaderContainer>
         <Header>
           <Header1>Free.</Header1>
@@ -39,6 +39,6 @@ export default function Home() {
           )}
         </ButtonsContainer>
       </BodyContainer>
-    </Container>
+    </Layout>
   )
 }

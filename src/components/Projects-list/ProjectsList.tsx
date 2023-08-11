@@ -1,34 +1,66 @@
+import { useAccount } from 'wagmi'
+
 import { Box, VStack } from '@chakra-ui/react'
 
 import { calculateCompletion } from '../../utils/general'
 import { Project as TProject } from '../../utils/types'
-import Project from '../project-row/ProjectRow'
+import ProjectRow from '../project-row/ProjectRow'
 
 type ProjectsProps = {
   projects: TProject[]
 }
 
-function Projects({ projects }: ProjectsProps) {
+function ProjectsList({ projects }: ProjectsProps) {
+  const { address } = useAccount()
+
+  const projectAsClient = projects.filter(
+    (project: TProject) => project.client === address
+  )
+
+  const projectAsFreelancer = projects.filter(
+    (project: TProject) => project.freelancer === address
+  )
+
   return (
     <Box width={600}>
       {projects.length === 0 ? (
         <Box>No projects found.</Box>
       ) : (
         <VStack spacing={4} align="stretch">
-          {projects.map((project: TProject) => (
-            <Project
-              key={project.id}
-              progress={calculateCompletion(
-                BigInt(project.startedAt),
-                BigInt(project.deadline)
-              )}
-              {...project}
-            />
-          ))}
+          {projectAsFreelancer.length > 0 && (
+            <>
+              <Box fontWeight="bold">As Freelancer</Box>
+              {projectAsFreelancer.map((project: TProject) => (
+                <ProjectRow
+                  key={project.id}
+                  progress={calculateCompletion(
+                    BigInt(project.startedAt),
+                    BigInt(project.deadline)
+                  )}
+                  {...project}
+                />
+              ))}
+            </>
+          )}
+          {projectAsClient.length > 0 && (
+            <>
+              <Box fontWeight="bold">As Client</Box>
+              {projectAsClient.map((project: TProject) => (
+                <ProjectRow
+                  key={project.id}
+                  progress={calculateCompletion(
+                    BigInt(project.startedAt),
+                    BigInt(project.deadline)
+                  )}
+                  {...project}
+                />
+              ))}
+            </>
+          )}
         </VStack>
       )}
     </Box>
   )
 }
 
-export default Projects
+export default ProjectsList

@@ -17,7 +17,7 @@ function Projects() {
   )
 
   return (
-    <Layout transparent title="My Projects">
+    <Layout cta transparent title="My Projects">
       <Box>
         {isLoading ? (
           <Text>Loading...</Text>

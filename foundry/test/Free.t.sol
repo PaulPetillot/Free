@@ -1,748 +1,749 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.13;
 
-import "../src/Free.sol";
-import "forge-std/Test.sol";
+import '../src/Free.sol';
+import 'forge-std/Test.sol';
 
 contract FreeTest is Test {
-    Free public free;
-    address freelancer;
-    address client;
+  Free public free;
+  address freelancer;
+  address client;
 
-    event ProjectCreated(
-        uint32 id,
-        address indexed client,
-        address indexed freelancer
+  event ProjectCreated(
+    uint32 id,
+    address indexed client,
+    address indexed freelancer
+  );
+
+  function setUp() public {
+    free = new Free();
+    freelancer = vm.addr(1);
+    client = vm.addr(2);
+    vm.deal(freelancer, 2 ether);
+    vm.deal(client, 2 ether);
+  }
+
+  function createProject(uint256 end) public returns (uint32 projectId) {
+    vm.prank(freelancer);
+
+    projectId = free.createProject(
+      1 ether,
+      block.timestamp + end,
+      payable(client)
+    );
+  }
+
+  // Create project
+  function test_CreateProject() public {
+    uint32 projectId = createProject(1 days);
+
+    (
+      uint32 id,
+      uint256 quote,
+      uint256 deadline,
+      uint256 lastClaimed,
+      uint256 newProposedDeadline,
+      uint256 newFreelancerQuote,
+      bool started,
+      bool finished,
+      address payable clientAddress,
+      address payable freelancerAddress,
+      uint256 startedAt
+    ) = free.projectById(projectId);
+
+    assertEq(projectId, 1);
+    assertEq(id, 1);
+    assertEq(quote, 1 ether);
+    assertEq(deadline, block.timestamp + 1 days);
+    assertEq(lastClaimed, block.timestamp);
+    assertEq(newProposedDeadline, 0);
+    assertEq(newFreelancerQuote, 0);
+    assertEq(started, false);
+    assertEq(finished, false);
+    assertEq(clientAddress, client);
+    assertEq(freelancerAddress, freelancer);
+    assertEq(startedAt, block.timestamp);
+  }
+
+  // Fail create project
+  function testFail_CannotAddNoQuote() public {
+    free.createProject(0, block.timestamp + 1 days, payable(freelancer));
+    vm.expectRevert('Quote must be greater than 0');
+  }
+
+  function testFail_CannotAddNoDeadline() public {
+    free.createProject(1 ether, 0, payable(freelancer));
+    vm.expectRevert('Deadline must be in the future');
+  }
+
+  function testFail_CannotAddNoFreelancer() public {
+    free.createProject(1 ether, block.timestamp + 1 days, payable(address(0)));
+    vm.expectRevert('Client address must be a valid address');
+  }
+
+  // Accept and start project
+  function test_acceptAndStartProject() public {
+    uint32 projectId = createProject(1 days);
+
+    vm.prank(client);
+    free.acceptAndStartProject{value: 1 ether}(projectId);
+
+    (, , , uint256 lastClaimed, , , bool started, , , , ) = free.projectById(
+      projectId
     );
 
-    function setUp() public {
-        free = new Free();
-        freelancer = vm.addr(1);
-        client = vm.addr(2);
-        vm.deal(freelancer, 2 ether);
-        vm.deal(client, 2 ether);
-    }
-
-    function createProject(uint256 end) public returns (uint32 projectId) {
-        vm.prank(freelancer);
-
-        projectId = free.createProject(
-            1 ether,
-            block.timestamp + end,
-            payable(client)
-        );
-    }
-
-    // Create project
-    function test_CreateProject() public {
-        uint32 projectId = createProject(1 days);
-
-        (
-            uint32 id,
-            uint256 quote,
-            uint256 deadline,
-            uint256 lastClaimed,
-            uint256 newProposedDeadline,
-            uint256 newFreelancerQuote,
-            bool started,
-            bool finished,
-            address payable clientAddress,
-            address payable freelancerAddress,
-            uint256 startedAt
-        ) = free.projectById(projectId);
-
-        assertEq(projectId, 1);
-        assertEq(id, 1);
-        assertEq(quote, 1 ether);
-        assertEq(deadline, block.timestamp + 1 days);
-        assertEq(lastClaimed, block.timestamp);
-        assertEq(newProposedDeadline, 0);
-        assertEq(newFreelancerQuote, 0);
-        assertEq(started, false);
-        assertEq(finished, false);
-        assertEq(clientAddress, client);
-        assertEq(freelancerAddress, freelancer);
-        assertEq(startedAt, block.timestamp);
-    }
-
-    // Fail create project
-    function testFail_CannotAddNoQuote() public {
-        free.createProject(0, block.timestamp + 1 days, payable(freelancer));
-        vm.expectRevert("Quote must be greater than 0");
-    }
-
-    function testFail_CannotAddNoDeadline() public {
-        free.createProject(1 ether, 0, payable(freelancer));
-        vm.expectRevert("Deadline must be in the future");
-    }
-
-    function testFail_CannotAddNoFreelancer() public {
-        free.createProject(
-            1 ether,
-            block.timestamp + 1 days,
-            payable(address(0))
-        );
-        vm.expectRevert("Client address must be a valid address");
-    }
-
-    // Accept and start project
-    function test_acceptAndStartProject() public {
-        uint32 projectId = createProject(1 days);
-
-        vm.prank(client);
-        free.acceptAndStartProject{value: 1 ether}(projectId);
-
-        (, , , uint256 lastClaimed, , , bool started, , , , ) = free
-            .projectById(projectId);
-
-        uint256 freelancerBalance = free.getFreelancerBalance(projectId);
-        uint256 clientBalance = free.getClientBalance(projectId);
-
-        assertEq(lastClaimed, block.timestamp);
-        assertEq(started, true);
-        assertEq(freelancerBalance, 0);
-        assertEq(clientBalance, 1 ether);
-    }
-
-    // Fail accept and start project
-    function testFail_cannotSendDifferentQuote() public {
-        uint32 projectId = createProject(1 days);
-
-        vm.prank(client);
-        free.acceptAndStartProject{value: 2 ether}(projectId);
-        vm.expectRevert("The amount sent must be equal to the quote");
-    }
-
-    function testFail_cannotStartTwice() public {
-        uint32 projectId = createProject(1 days);
-
-        vm.prank(client);
-        free.acceptAndStartProject{value: 1 ether}(projectId);
-        vm.prank(client);
-        free.acceptAndStartProject{value: 1 ether}(projectId);
-        vm.expectRevert("The project has already been started");
-    }
+    uint256 freelancerBalance = free.getFreelancerBalance(projectId);
+    uint256 clientBalance = free.getClientBalance(projectId);
+
+    assertEq(lastClaimed, block.timestamp);
+    assertEq(started, true);
+    assertEq(freelancerBalance, 0);
+    assertEq(clientBalance, 1 ether);
+  }
+
+  // Fail accept and start project
+  function testFail_cannotSendDifferentQuote() public {
+    uint32 projectId = createProject(1 days);
+
+    vm.prank(client);
+    free.acceptAndStartProject{value: 2 ether}(projectId);
+    vm.expectRevert('The amount sent must be equal to the quote');
+  }
+
+  function testFail_cannotStartTwice() public {
+    uint32 projectId = createProject(1 days);
+
+    vm.prank(client);
+    free.acceptAndStartProject{value: 1 ether}(projectId);
+    vm.prank(client);
+    free.acceptAndStartProject{value: 1 ether}(projectId);
+    vm.expectRevert('The project has already been started');
+  }
+
+  //Reject a project
+  function test_rejectProject() public {
+    uint32 projectId = createProject(1 days);
+
+    vm.prank(client);
+    free.rejectProject(projectId);
+
+    (, , , , , , , bool finished, , , ) = free.projectById(projectId);
+
+    assertEq(finished, true);
+  }
+
+  // Fail reject project
+  function testFail_cannotRejectTwice() public {
+    uint32 projectId = createProject(1 days);
+
+    vm.prank(client);
+    free.rejectProject(projectId);
+    vm.prank(client);
+    free.rejectProject(projectId);
+    vm.expectRevert('The project has already been finished');
+  }
+
+  function testFail_cannotRejectAfterStarting() public {
+    uint32 projectId = createProject(1 days);
+
+    vm.prank(client);
+    free.acceptAndStartProject{value: 1 ether}(projectId);
+    vm.prank(client);
+    free.rejectProject(projectId);
+    vm.expectRevert('The project has already been started');
+  }
+
+  function testFail_cannotRejectAsFreelancer() public {
+    uint32 projectId = createProject(1 days);
+    vm.prank(freelancer);
+    free.rejectProject(projectId);
+    vm.expectRevert('Only the client can reject a project');
+  }
+
+  // Claim allowance as freelancer
+  function test_claimAllowanceAsFreelancer() public {
+    uint32 projectId = createProject(10 days);
+    vm.prank(client);
+    free.acceptAndStartProject{value: 1 ether}(projectId);
+
+    vm.warp(block.timestamp + 1 days);
+    vm.prank(freelancer);
+    free.claim(projectId);
+
+    (, , , uint256 lastClaimed, , , , , , , ) = free.projectById(projectId);
+
+    uint256 freelancerBalance = free.getFreelancerBalance(projectId);
+    uint256 clientBalance = free.getClientBalance(projectId);
+
+    uint expectedClaimAmount = (1 ether * 1 days) / 10 days; // Calculate expected claim amount based on elapsed time
+
+    assertEq(lastClaimed, block.timestamp);
+    assertEq(freelancerBalance, expectedClaimAmount); // Change this assertion
+    assertEq(clientBalance, 1 ether - expectedClaimAmount); // Change this assertion
+  }
+
+  function test_claimAllowanceAfterDeadline() public {
+    uint32 projectId = createProject(10 days);
+
+    vm.prank(client);
+    free.acceptAndStartProject{value: 1 ether}(projectId);
+
+    vm.warp(block.timestamp + 11 days);
+    vm.prank(freelancer);
+    free.claim(projectId);
+
+    (, , , uint256 lastClaimed, , , , , , , ) = free.projectById(projectId);
+
+    uint256 freelancerBalance = free.getFreelancerBalance(projectId);
+    uint256 clientBalance = free.getClientBalance(projectId);
+
+    assertEq(lastClaimed, block.timestamp);
+    assertEq(freelancerBalance, 1 ether);
+    assertEq(clientBalance, 0 ether);
+  }
+
+  function test_claimMultipleTimes() public {
+    uint32 projectId = createProject(10 days);
+
+    vm.prank(client);
+    free.acceptAndStartProject{value: 1 ether}(projectId);
+
+    vm.warp(block.timestamp + 2 days);
+    vm.prank(freelancer);
+    free.claim(projectId);
+    (, , , uint256 lastClaimed, , , , bool finished, , , ) = free.projectById(
+      projectId
+    );
+
+    uint256 freelancerBalance = free.getFreelancerBalance(projectId);
+    uint256 clientBalance = free.getClientBalance(projectId);
+
+    assertEq(lastClaimed, block.timestamp);
+    assertEq(freelancerBalance, 0.2 ether);
+    assertEq(clientBalance, 0.8 ether);
+
+    vm.warp(block.timestamp + 5 days);
+    vm.prank(freelancer);
+    free.claim(projectId);
+    (, , , lastClaimed, , , , finished, , , ) = free.projectById(projectId);
+
+    freelancerBalance = free.getFreelancerBalance(projectId);
+    clientBalance = free.getClientBalance(projectId);
+
+    assertEq(lastClaimed, block.timestamp);
+    assertEq(finished, false);
+    assertEq(freelancerBalance, 0.7 ether);
+    assertEq(clientBalance, 0.3 ether);
+
+    vm.warp(block.timestamp + 5 days);
+    vm.prank(freelancer);
+    free.claim(projectId);
+    (, , , lastClaimed, , , , finished, , , ) = free.projectById(projectId);
+
+    freelancerBalance = free.getFreelancerBalance(projectId);
+    clientBalance = free.getClientBalance(projectId);
+
+    assertEq(lastClaimed, block.timestamp);
+    assertEq(finished, true);
+    assertEq(freelancerBalance, 1 ether);
+    assertEq(clientBalance, 0 ether);
+  }
+
+  function test_claimAfterExpendingDeadline() public {
+    uint32 projectId = createProject(10 days);
+
+    vm.prank(client);
+    free.acceptAndStartProject{value: 1 ether}(projectId);
+
+    // Wait five days, amount claimable should be 0.5 ether
+    vm.warp(block.timestamp + 5 days);
+    vm.prank(freelancer);
+    free.claim(projectId);
+
+    (
+      ,
+      uint quote,
+      uint deadline,
+      uint256 lastClaimed,
+      ,
+      ,
+      ,
+      bool finished,
+      ,
+      ,
+
+    ) = free.projectById(projectId);
+
+    uint256 freelancerBalance = free.getFreelancerBalance(projectId);
+    uint256 clientBalance = free.getClientBalance(projectId);
+
+    assertEq(lastClaimed, block.timestamp);
+    assertEq(finished, false);
+    assertEq(freelancerBalance, 0.5 ether);
+    assertEq(clientBalance, 0.5 ether);
+    console.log('quote', quote);
+    console.log('deadline', deadline);
+
+    // Extend deadline by 5 days
+    vm.prank(freelancer);
+    free.requestExtendDeadline(projectId, block.timestamp + 10 days, 1 ether);
+    vm.prank(client);
+    free.acceptNewDeadline{value: 1 ether}(projectId);
+
+    // Wait 5 more days, amount claimable should be 0.75 ether
+    vm.warp(block.timestamp + 5 days);
+    vm.prank(freelancer);
+    free.claim(projectId);
+
+    (, quote, deadline, lastClaimed, , , , finished, , , ) = free.projectById(
+      projectId
+    );
 
-    //Reject a project
-    function test_rejectProject() public {
-        uint32 projectId = createProject(1 days);
+    freelancerBalance = free.getFreelancerBalance(projectId);
+    clientBalance = free.getClientBalance(projectId);
 
-        vm.prank(client);
-        free.rejectProject(projectId);
+    assertEq(lastClaimed, block.timestamp);
+    assertEq(finished, false);
+    assertEq(freelancerBalance, 1.25 ether);
+    assertEq(clientBalance, 0.75 ether);
 
-        (, , , , , , , bool finished, , , ) = free.projectById(projectId);
+    // Wait 6 more days, should finish the project and claim the remaining 0.75 ether
+    vm.warp(block.timestamp + 6 days);
+    vm.prank(freelancer);
+    free.claim(projectId);
 
-        assertEq(finished, true);
-    }
+    (, quote, deadline, lastClaimed, , , , finished, , , ) = free.projectById(
+      projectId
+    );
 
-    // Fail reject project
-    function testFail_cannotRejectTwice() public {
-        uint32 projectId = createProject(1 days);
+    freelancerBalance = free.getFreelancerBalance(projectId);
+    clientBalance = free.getClientBalance(projectId);
 
-        vm.prank(client);
-        free.rejectProject(projectId);
-        vm.prank(client);
-        free.rejectProject(projectId);
-        vm.expectRevert("The project has already been finished");
-    }
+    assertEq(lastClaimed, block.timestamp);
+    assertEq(finished, true);
+    assertEq(freelancerBalance, 2 ether);
+    assertEq(clientBalance, 0 ether);
+  }
 
-    function testFail_cannotRejectAfterStarting() public {
-        uint32 projectId = createProject(1 days);
-
-        vm.prank(client);
-        free.acceptAndStartProject{value: 1 ether}(projectId);
-        vm.prank(client);
-        free.rejectProject(projectId);
-        vm.expectRevert("The project has already been started");
-    }
+  // Fail claim allowance
 
-    function testFail_cannotRejectAsFreelancer() public {
-        uint32 projectId = createProject(1 days);
-        vm.prank(freelancer);
-        free.rejectProject(projectId);
-        vm.expectRevert("Only the client can reject a project");
-    }
+  function testFail_CannotClaimIfNotStarted() public {
+    uint32 projectId = createProject(10 days);
+    vm.prank(freelancer);
+    free.claim(projectId);
+    vm.expectRevert('The project has not been started yet');
+  }
 
-    // Claim allowance as freelancer
-    function test_claimAllowanceAsFreelancer() public {
-        uint32 projectId = createProject(10 days);
-        vm.prank(client);
-        free.acceptAndStartProject{value: 1 ether}(projectId);
-
-        vm.warp(block.timestamp + 1 days);
-        vm.prank(freelancer);
-        free.claim(projectId);
-
-        (, , , uint256 lastClaimed, , , , , , , ) = free.projectById(projectId);
-
-        uint256 freelancerBalance = free.getFreelancerBalance(projectId);
-        uint256 clientBalance = free.getClientBalance(projectId);
-
-        uint expectedClaimAmount = (1 ether * 1 days) / 10 days; // Calculate expected claim amount based on elapsed time
-
-        assertEq(lastClaimed, block.timestamp);
-        assertEq(freelancerBalance, expectedClaimAmount); // Change this assertion
-        assertEq(clientBalance, 1 ether - expectedClaimAmount); // Change this assertion
-    }
-
-    function test_claimAllowanceAfterDeadline() public {
-        uint32 projectId = createProject(10 days);
-
-        vm.prank(client);
-        free.acceptAndStartProject{value: 1 ether}(projectId);
-
-        vm.warp(block.timestamp + 11 days);
-        vm.prank(freelancer);
-        free.claim(projectId);
-
-        (, , , uint256 lastClaimed, , , , , , , ) = free.projectById(projectId);
-
-        uint256 freelancerBalance = free.getFreelancerBalance(projectId);
-        uint256 clientBalance = free.getClientBalance(projectId);
-
-        assertEq(lastClaimed, block.timestamp);
-        assertEq(freelancerBalance, 1 ether);
-        assertEq(clientBalance, 0 ether);
-    }
-
-    function test_claimMultipleTimes() public {
-        uint32 projectId = createProject(10 days);
-
-        vm.prank(client);
-        free.acceptAndStartProject{value: 1 ether}(projectId);
-
-        vm.warp(block.timestamp + 2 days);
-        vm.prank(freelancer);
-        free.claim(projectId);
-        (, , , uint256 lastClaimed, , , , bool finished, , , ) = free
-            .projectById(projectId);
-
-        uint256 freelancerBalance = free.getFreelancerBalance(projectId);
-        uint256 clientBalance = free.getClientBalance(projectId);
-
-        assertEq(lastClaimed, block.timestamp);
-        assertEq(freelancerBalance, 0.2 ether);
-        assertEq(clientBalance, 0.8 ether);
-
-        vm.warp(block.timestamp + 5 days);
-        vm.prank(freelancer);
-        free.claim(projectId);
-        (, , , lastClaimed, , , , finished, , , ) = free.projectById(projectId);
-
-        freelancerBalance = free.getFreelancerBalance(projectId);
-        clientBalance = free.getClientBalance(projectId);
-
-        assertEq(lastClaimed, block.timestamp);
-        assertEq(finished, false);
-        assertEq(freelancerBalance, 0.7 ether);
-        assertEq(clientBalance, 0.3 ether);
-
-        vm.warp(block.timestamp + 5 days);
-        vm.prank(freelancer);
-        free.claim(projectId);
-        (, , , lastClaimed, , , , finished, , , ) = free.projectById(projectId);
-
-        freelancerBalance = free.getFreelancerBalance(projectId);
-        clientBalance = free.getClientBalance(projectId);
-
-        assertEq(lastClaimed, block.timestamp);
-        assertEq(finished, true);
-        assertEq(freelancerBalance, 1 ether);
-        assertEq(clientBalance, 0 ether);
-    }
-
-    function test_claimAfterExpendingDeadline() public {
-        uint32 projectId = createProject(10 days);
-
-        vm.prank(client);
-        free.acceptAndStartProject{value: 1 ether}(projectId);
-
-        // Wait five days, amount claimable should be 0.5 ether
-        vm.warp(block.timestamp + 5 days);
-        vm.prank(freelancer);
-        free.claim(projectId);
-
-        (
-            ,
-            uint quote,
-            uint deadline,
-            uint256 lastClaimed,
-            ,
-            ,
-            ,
-            bool finished,
-            ,
-            ,
-
-        ) = free.projectById(projectId);
-
-        uint256 freelancerBalance = free.getFreelancerBalance(projectId);
-        uint256 clientBalance = free.getClientBalance(projectId);
-
-        assertEq(lastClaimed, block.timestamp);
-        assertEq(finished, false);
-        assertEq(freelancerBalance, 0.5 ether);
-        assertEq(clientBalance, 0.5 ether);
-        console.log("quote", quote);
-        console.log("deadline", deadline);
+  function testFail_CannotClaimIfFinished() public {
+    uint32 projectId = createProject(10 days);
+    vm.prank(client);
+    free.acceptAndStartProject{value: 1 ether}(projectId);
 
-        // Extend deadline by 5 days
-        vm.prank(freelancer);
-        free.requestExtendDeadline(projectId, 5 days, 1 ether);
-        vm.prank(client);
-        free.acceptNewDeadline{value: 1 ether}(projectId);
+    vm.warp(block.timestamp + 11 days);
+    vm.prank(freelancer);
+    free.claim(projectId);
+    vm.expectRevert('The project has already been finished');
+  }
 
-        // Wait 5 more days, amount claimable should be 0.75 ether
-        vm.warp(block.timestamp + 5 days);
-        vm.prank(freelancer);
-        free.claim(projectId);
+  // Withdraw funds as freelancer
 
-        (, quote, deadline, lastClaimed, , , , finished, , , ) = free
-            .projectById(projectId);
+  function test_withdrawFundsAsFreelancer() public {
+    uint32 projectId = createProject(10 days);
 
-        freelancerBalance = free.getFreelancerBalance(projectId);
-        clientBalance = free.getClientBalance(projectId);
+    vm.prank(client);
+    free.acceptAndStartProject{value: 1 ether}(projectId);
 
-        assertEq(lastClaimed, block.timestamp);
-        assertEq(finished, false);
-        assertEq(freelancerBalance, 1.25 ether);
-        assertEq(clientBalance, 0.75 ether);
+    vm.warp(block.timestamp + 11 days);
 
-        // Wait 6 more days, should finish the project and claim the remaining 0.75 ether
-        vm.warp(block.timestamp + 6 days);
-        vm.prank(freelancer);
-        free.claim(projectId);
+    vm.prank(freelancer);
+    free.claim(projectId);
 
-        (, quote, deadline, lastClaimed, , , , finished, , , ) = free
-            .projectById(projectId);
+    assertEq(free.getFreelancerBalance(projectId), 1 ether);
 
-        freelancerBalance = free.getFreelancerBalance(projectId);
-        clientBalance = free.getClientBalance(projectId);
+    vm.prank(freelancer);
+    free.withdraw(projectId);
 
-        assertEq(lastClaimed, block.timestamp);
-        assertEq(finished, true);
-        assertEq(freelancerBalance, 2 ether);
-        assertEq(clientBalance, 0 ether);
-    }
+    assertEq(free.getFreelancerBalance(projectId), 0 ether);
+    assertEq(address(freelancer).balance, 3 ether);
+    assertEq(address(client).balance, 1 ether);
+    assert(free.getClientBalance(projectId) == 0 ether);
+  }
 
-    // Fail claim allowance
+  // Withdraw funds as client
 
-    function testFail_CannotClaimIfNotStarted() public {
-        uint32 projectId = createProject(10 days);
-        vm.prank(freelancer);
-        free.claim(projectId);
-        vm.expectRevert("The project has not been started yet");
-    }
+  function testFail_cannotWithdrawAsNotFreelancer() public {
+    uint32 projectId = createProject(10 days);
 
-    function testFail_CannotClaimIfFinished() public {
-        uint32 projectId = createProject(10 days);
-        vm.prank(client);
-        free.acceptAndStartProject{value: 1 ether}(projectId);
+    vm.prank(client);
+    free.acceptAndStartProject{value: 1 ether}(projectId);
 
-        vm.warp(block.timestamp + 11 days);
-        vm.prank(freelancer);
-        free.claim(projectId);
-        vm.expectRevert("The project has already been finished");
-    }
+    vm.warp(block.timestamp + 11 days);
 
-    // Withdraw funds as freelancer
+    vm.prank(freelancer);
+    free.claim(projectId);
 
-    function test_withdrawFundsAsFreelancer() public {
-        uint32 projectId = createProject(10 days);
+    assertEq(free.getFreelancerBalance(projectId), 1 ether);
 
-        vm.prank(client);
-        free.acceptAndStartProject{value: 1 ether}(projectId);
+    vm.prank(client);
+    free.withdraw(projectId);
+    vm.expectRevert('Only the freelancer can withdraw funds');
+  }
 
-        vm.warp(block.timestamp + 11 days);
+  function testFail_cannotWithdrawNoFunds() public {
+    uint32 projectId = createProject(10 days);
 
-        vm.prank(freelancer);
-        free.claim(projectId);
+    vm.prank(client);
+    free.acceptAndStartProject{value: 1 ether}(projectId);
 
-        assertEq(free.getFreelancerBalance(projectId), 1 ether);
+    vm.warp(block.timestamp + 11 days);
 
-        vm.prank(freelancer);
-        free.withdraw(projectId);
+    vm.prank(freelancer);
+    free.claim(projectId);
 
-        assertEq(free.getFreelancerBalance(projectId), 0 ether);
-        assertEq(address(freelancer).balance, 3 ether);
-        assertEq(address(client).balance, 1 ether);
-        assert(free.getClientBalance(projectId) == 0 ether);
-    }
+    assertEq(free.getFreelancerBalance(projectId), 1 ether);
 
-    // Withdraw funds as client
+    vm.prank(freelancer);
+    free.withdraw(projectId);
+    vm.prank(freelancer);
+    free.withdraw(projectId);
 
-    function testFail_cannotWithdrawAsNotFreelancer() public {
-        uint32 projectId = createProject(10 days);
+    vm.expectRevert('You have no funds to withdraw');
+  }
 
-        vm.prank(client);
-        free.acceptAndStartProject{value: 1 ether}(projectId);
+  // Cancel project
 
-        vm.warp(block.timestamp + 11 days);
+  function test_cancelProjectAsClient() public {
+    uint32 projectId = createProject(10 days);
 
-        vm.prank(freelancer);
-        free.claim(projectId);
+    vm.prank(client);
+    free.acceptAndStartProject{value: 1 ether}(projectId);
 
-        assertEq(free.getFreelancerBalance(projectId), 1 ether);
+    vm.warp(block.timestamp + 5 days);
 
-        vm.prank(client);
-        free.withdraw(projectId);
-        vm.expectRevert("Only the freelancer can withdraw funds");
-    }
+    vm.prank(freelancer);
+    free.claim(projectId);
 
-    function testFail_cannotWithdrawNoFunds() public {
-        uint32 projectId = createProject(10 days);
+    assertEq(free.getFreelancerBalance(projectId), 0.5 ether);
+    assertEq(free.getClientBalance(projectId), 0.5 ether);
 
-        vm.prank(client);
-        free.acceptAndStartProject{value: 1 ether}(projectId);
+    vm.prank(client);
+    free.cancelProject(projectId);
+    (, , , , , , , bool finished, , , ) = free.projectById(projectId);
 
-        vm.warp(block.timestamp + 11 days);
+    assertEq(finished, true);
+    assertEq(address(freelancer).balance, 2.5 ether);
+    assertEq(address(client).balance, 1.5 ether);
+    assertEq(free.getFreelancerBalance(projectId), 0 ether);
+    assertEq(free.getClientBalance(projectId), 0 ether);
+  }
 
-        vm.prank(freelancer);
-        free.claim(projectId);
+  function test_cancelProjectAsFreelancer() public {
+    uint32 projectId = createProject(10 days);
 
-        assertEq(free.getFreelancerBalance(projectId), 1 ether);
+    vm.prank(client);
+    free.acceptAndStartProject{value: 1 ether}(projectId);
 
-        vm.prank(freelancer);
-        free.withdraw(projectId);
-        vm.prank(freelancer);
-        free.withdraw(projectId);
+    vm.warp(block.timestamp + 5 days);
 
-        vm.expectRevert("You have no funds to withdraw");
-    }
+    vm.prank(freelancer);
+    free.claim(projectId);
 
-    // Cancel project
+    assertEq(free.getFreelancerBalance(projectId), 0.5 ether);
+    assertEq(free.getClientBalance(projectId), 0.5 ether);
 
-    function test_cancelProjectAsClient() public {
-        uint32 projectId = createProject(10 days);
+    vm.prank(freelancer);
+    free.cancelProject(projectId);
+    (, , , , , , , bool finished, , , ) = free.projectById(projectId);
 
-        vm.prank(client);
-        free.acceptAndStartProject{value: 1 ether}(projectId);
+    assertEq(finished, true);
+    assertEq(address(freelancer).balance, 2.5 ether);
+    assertEq(address(client).balance, 1.5 ether);
+    assertEq(free.getFreelancerBalance(projectId), 0 ether);
+    assertEq(free.getClientBalance(projectId), 0 ether);
+  }
 
-        vm.warp(block.timestamp + 5 days);
+  // cancel project fail
 
-        vm.prank(freelancer);
-        free.claim(projectId);
+  function testFail_cannotCancelProjectAsNotClientOrFreelancer() public {
+    uint32 projectId = createProject(10 days);
 
-        assertEq(free.getFreelancerBalance(projectId), 0.5 ether);
-        assertEq(free.getClientBalance(projectId), 0.5 ether);
+    vm.prank(client);
+    free.acceptAndStartProject{value: 1 ether}(projectId);
 
-        vm.prank(client);
-        free.cancelProject(projectId);
-        (, , , , , , , bool finished, , , ) = free.projectById(projectId);
+    vm.prank(vm.addr(3));
+    free.cancelProject(projectId);
+    vm.expectRevert('Only the client or freelancer can cancel the project');
+  }
 
-        assertEq(finished, true);
-        assertEq(address(freelancer).balance, 2.5 ether);
-        assertEq(address(client).balance, 1.5 ether);
-        assertEq(free.getFreelancerBalance(projectId), 0 ether);
-        assertEq(free.getClientBalance(projectId), 0 ether);
-    }
+  function testFail_cannotCancelProjectIfNotStarted() public {
+    uint32 projectId = createProject(10 days);
 
-    function test_cancelProjectAsFreelancer() public {
-        uint32 projectId = createProject(10 days);
+    vm.prank(client);
+    free.cancelProject(projectId);
+    vm.expectRevert('The project has not been started yet');
+  }
 
-        vm.prank(client);
-        free.acceptAndStartProject{value: 1 ether}(projectId);
+  function testFail_cannotCancelProjectIfFinished() public {
+    uint32 projectId = createProject(10 days);
 
-        vm.warp(block.timestamp + 5 days);
+    vm.prank(client);
+    free.acceptAndStartProject{value: 1 ether}(projectId);
 
-        vm.prank(freelancer);
-        free.claim(projectId);
+    vm.warp(block.timestamp + 11 days);
 
-        assertEq(free.getFreelancerBalance(projectId), 0.5 ether);
-        assertEq(free.getClientBalance(projectId), 0.5 ether);
+    vm.prank(freelancer);
+    free.claim(projectId);
 
-        vm.prank(freelancer);
-        free.cancelProject(projectId);
-        (, , , , , , , bool finished, , , ) = free.projectById(projectId);
+    vm.prank(client);
+    free.cancelProject(projectId);
+    vm.expectRevert('The project has already been finished');
+  }
 
-        assertEq(finished, true);
-        assertEq(address(freelancer).balance, 2.5 ether);
-        assertEq(address(client).balance, 1.5 ether);
-        assertEq(free.getFreelancerBalance(projectId), 0 ether);
-        assertEq(free.getClientBalance(projectId), 0 ether);
-    }
+  // Request project deadline extension
 
-    // cancel project fail
+  function test_requestExtensionAsFreelancer() public {
+    uint32 projectId = createProject(10 days);
 
-    function testFail_cannotCancelProjectAsNotClientOrFreelancer() public {
-        uint32 projectId = createProject(10 days);
+    vm.prank(client);
+    free.acceptAndStartProject{value: 1 ether}(projectId);
 
-        vm.prank(client);
-        free.acceptAndStartProject{value: 1 ether}(projectId);
+    vm.warp(block.timestamp + 5 days);
 
-        vm.prank(vm.addr(3));
-        free.cancelProject(projectId);
-        vm.expectRevert("Only the client or freelancer can cancel the project");
-    }
+    vm.prank(freelancer);
+    free.requestExtendDeadline(projectId, block.timestamp + 15 days, 2 ether);
 
-    function testFail_cannotCancelProjectIfNotStarted() public {
-        uint32 projectId = createProject(10 days);
+    (, , , , uint256 newProposedDeadline, uint256 newQuote, , , , , ) = free
+      .projectById(projectId);
 
-        vm.prank(client);
-        free.cancelProject(projectId);
-        vm.expectRevert("The project has not been started yet");
-    }
+    assertEq(newProposedDeadline, block.timestamp + 15 days);
+    assertEq(newQuote, 2 ether);
+  }
 
-    function testFail_cannotCancelProjectIfFinished() public {
-        uint32 projectId = createProject(10 days);
+  // Request project deadline extension fail
 
-        vm.prank(client);
-        free.acceptAndStartProject{value: 1 ether}(projectId);
+  function testFail_cannotRequestExtensionAsNotFreelancer() public {
+    uint32 projectId = createProject(10 days);
 
-        vm.warp(block.timestamp + 11 days);
+    vm.prank(client);
+    free.acceptAndStartProject{value: 1 ether}(projectId);
 
-        vm.prank(freelancer);
-        free.claim(projectId);
+    vm.prank(client);
+    free.requestExtendDeadline(projectId, block.timestamp + 15 days, 2 ether);
+    vm.expectRevert('Only the freelancer can request a deadline extension');
+  }
 
-        vm.prank(client);
-        free.cancelProject(projectId);
-        vm.expectRevert("The project has already been finished");
-    }
+  function testFail_cannotRequestExtensionIfNotStarted() public {
+    uint32 projectId = createProject(10 days);
 
-    // Request project deadline extension
+    vm.prank(freelancer);
+    free.requestExtendDeadline(projectId, block.timestamp + 15 days, 2 ether);
+    vm.expectRevert('The project has not been started yet');
+  }
 
-    function test_requestExtensionAsFreelancer() public {
-        uint32 projectId = createProject(10 days);
+  function testFail_cannotRequestExtensionIfFinished() public {
+    uint32 projectId = createProject(10 days);
 
-        vm.prank(client);
-        free.acceptAndStartProject{value: 1 ether}(projectId);
+    vm.prank(client);
+    free.acceptAndStartProject{value: 1 ether}(projectId);
+    vm.warp(block.timestamp + 11 days);
 
-        vm.warp(block.timestamp + 5 days);
+    vm.prank(freelancer);
+    free.claim(projectId);
 
-        vm.prank(freelancer);
-        free.requestExtendDeadline(projectId, 5 days, 2 ether);
+    vm.prank(freelancer);
+    free.requestExtendDeadline(projectId, block.timestamp + 15 days, 2 ether);
+    vm.expectRevert('The project has already been finished');
+  }
 
-        (, , , , uint256 newProposedDeadline, uint256 newQuote, , , , , ) = free
-            .projectById(projectId);
+  // Accept project deadline extension
 
-        assertEq(newProposedDeadline, 5 days);
-        assertEq(newQuote, 2 ether);
-    }
+  function test_acceptNewDeadlineAsClient() public {
+    uint32 projectId = createProject(10 days);
 
-    // Request project deadline extension fail
+    vm.prank(client);
+    free.acceptAndStartProject{value: 1 ether}(projectId);
 
-    function testFail_cannotRequestExtensionAsNotFreelancer() public {
-        uint32 projectId = createProject(10 days);
+    vm.prank(freelancer);
+    free.requestExtendDeadline(projectId, block.timestamp + 15 days, 1 ether);
+    (
+      ,
+      uint256 quote,
+      uint256 deadline,
+      ,
+      uint256 newProposedDeadline,
+      uint256 newQuote,
+      ,
+      ,
+      ,
+      ,
 
-        vm.prank(client);
-        free.acceptAndStartProject{value: 1 ether}(projectId);
+    ) = free.projectById(projectId);
 
-        vm.prank(client);
-        free.requestExtendDeadline(projectId, 5 days, 2 ether);
-        vm.expectRevert("Only the freelancer can request a deadline extension");
-    }
+    assertEq(newProposedDeadline, block.timestamp + 15 days);
+    assertEq(newQuote, 1 ether);
 
-    function testFail_cannotRequestExtensionIfNotStarted() public {
-        uint32 projectId = createProject(10 days);
+    vm.prank(client);
+    free.acceptNewDeadline{value: 1 ether}(projectId);
+    (, quote, deadline, , newProposedDeadline, newQuote, , , , , ) = free
+      .projectById(projectId);
 
-        vm.prank(freelancer);
-        free.requestExtendDeadline(projectId, 5 days, 2 ether);
-        vm.expectRevert("The project has not been started yet");
-    }
+    assertEq(deadline, block.timestamp + 15 days);
+    assertEq(quote, 2 ether);
+    assertEq(newProposedDeadline, 0);
+    assertEq(newQuote, 0);
+  }
 
-    function testFail_cannotRequestExtensionIfFinished() public {
-        uint32 projectId = createProject(10 days);
+  // Accept project deadline extension fail
 
-        vm.prank(client);
-        free.acceptAndStartProject{value: 1 ether}(projectId);
-        vm.warp(block.timestamp + 11 days);
+  function testFail_cannotAcceptNewDeadlineAsNotClient() public {
+    uint32 projectId = createProject(10 days);
 
-        vm.prank(freelancer);
-        free.claim(projectId);
+    vm.prank(client);
+    free.acceptAndStartProject{value: 1 ether}(projectId);
 
-        vm.prank(freelancer);
-        free.requestExtendDeadline(projectId, 5 days, 2 ether);
-        vm.expectRevert("The project has already been finished");
-    }
+    vm.prank(freelancer);
+    free.requestExtendDeadline(projectId, block.timestamp + 15 days, 1 ether);
 
-    // Accept project deadline extension
+    vm.prank(freelancer);
+    free.acceptNewDeadline{value: 1 ether}(projectId);
+    vm.expectRevert('Only the client can accept a deadline extension');
+  }
 
-    function test_acceptNewDeadlineAsClient() public {
-        uint32 projectId = createProject(10 days);
+  function testFail_cannotAcceptNewDeadlineIfNotStarted() public {
+    uint32 projectId = createProject(10 days);
 
-        vm.prank(client);
-        free.acceptAndStartProject{value: 1 ether}(projectId);
+    vm.prank(freelancer);
+    free.requestExtendDeadline(projectId, block.timestamp + 15 days, 1 ether);
 
-        vm.prank(freelancer);
-        free.requestExtendDeadline(projectId, 5 days, 1 ether);
-        (
-            ,
-            uint256 quote,
-            uint256 deadline,
-            ,
-            uint256 newProposedDeadline,
-            uint256 newQuote,
-            ,
-            ,
-            ,
-            ,
+    vm.prank(client);
+    free.acceptNewDeadline{value: 1 ether}(projectId);
+    vm.expectRevert('The project has not been started yet');
+  }
 
-        ) = free.projectById(projectId);
+  function testFail_cannotAcceptNewDeadlineIfFinished() public {
+    uint32 projectId = createProject(10 days);
 
-        assertEq(newProposedDeadline, 5 days);
-        assertEq(newQuote, 1 ether);
+    vm.prank(client);
+    free.acceptAndStartProject{value: 1 ether}(projectId);
+    vm.warp(block.timestamp + 11 days);
 
-        vm.prank(client);
-        free.acceptNewDeadline{value: 1 ether}(projectId);
-        (, quote, deadline, , newProposedDeadline, newQuote, , , , , ) = free
-            .projectById(projectId);
+    vm.prank(freelancer);
+    free.claim(projectId);
 
-        assertEq(deadline, block.timestamp + 15 days);
-        assertEq(quote, 2 ether);
-        assertEq(newProposedDeadline, 0);
-        assertEq(newQuote, 0);
-    }
+    vm.prank(client);
+    free.requestExtendDeadline(projectId, block.timestamp + 15 days, 1 ether);
 
-    // Accept project deadline extension fail
+    vm.prank(client);
+    free.acceptNewDeadline{value: 1 ether}(projectId);
+    vm.expectRevert('The project has already been finished');
+  }
 
-    function testFail_cannotAcceptNewDeadlineAsNotClient() public {
-        uint32 projectId = createProject(10 days);
+  // Finish project
 
-        vm.prank(client);
-        free.acceptAndStartProject{value: 1 ether}(projectId);
+  function test_finishProjectAsFreelancer() public {
+    uint32 projectId = createProject(10 days);
 
-        vm.prank(freelancer);
-        free.requestExtendDeadline(projectId, 5 days, 1 ether);
+    vm.prank(client);
+    free.acceptAndStartProject{value: 1 ether}(projectId);
+    vm.warp(block.timestamp + 5 days);
 
-        vm.prank(freelancer);
-        free.acceptNewDeadline{value: 1 ether}(projectId);
-        vm.expectRevert("Only the client can accept a deadline extension");
-    }
+    vm.prank(freelancer);
+    free.claim(projectId);
 
-    function testFail_cannotAcceptNewDeadlineIfNotStarted() public {
-        uint32 projectId = createProject(10 days);
+    (, , , , , , , bool finished, , , ) = free.projectById(projectId);
 
-        vm.prank(freelancer);
-        free.requestExtendDeadline(projectId, 5 days, 1 ether);
+    assertEq(finished, false);
+    assertEq(free.getClientBalance(projectId), 0.5 ether);
+    assertEq(free.getFreelancerBalance(projectId), 0.5 ether);
 
-        vm.prank(client);
-        free.acceptNewDeadline{value: 1 ether}(projectId);
-        vm.expectRevert("The project has not been started yet");
-    }
+    vm.warp(block.timestamp + 6 days);
+    vm.prank(freelancer);
+    free.finishProject(projectId);
 
-    function testFail_cannotAcceptNewDeadlineIfFinished() public {
-        uint32 projectId = createProject(10 days);
+    (, , , , , , , finished, , , ) = free.projectById(projectId);
 
-        vm.prank(client);
-        free.acceptAndStartProject{value: 1 ether}(projectId);
-        vm.warp(block.timestamp + 11 days);
+    assertEq(free.getClientBalance(projectId), 0);
+    assertEq(free.getFreelancerBalance(projectId), 1 ether);
 
-        vm.prank(freelancer);
-        free.claim(projectId);
+    assertEq(finished, true);
+  }
 
-        vm.prank(client);
-        free.acceptNewDeadline{value: 1 ether}(projectId);
-        vm.expectRevert("The project has already been finished");
-    }
+  function test_finishProjectAsClient() public {
+    uint32 projectId = createProject(10 days);
 
-    // Finish project
+    vm.prank(client);
+    free.acceptAndStartProject{value: 1 ether}(projectId);
+    vm.warp(block.timestamp + 5 days);
 
-    function test_finishProjectAsFreelancer() public {
-        uint32 projectId = createProject(10 days);
+    vm.prank(freelancer);
+    free.claim(projectId);
 
-        vm.prank(client);
-        free.acceptAndStartProject{value: 1 ether}(projectId);
-        vm.warp(block.timestamp + 5 days);
+    (, , , , , , , bool finished, , , ) = free.projectById(projectId);
 
-        vm.prank(freelancer);
-        free.claim(projectId);
+    assertEq(finished, false);
+    assertEq(free.getClientBalance(projectId), 0.5 ether);
+    assertEq(free.getFreelancerBalance(projectId), 0.5 ether);
 
-        (, , , , , , , bool finished, , , ) = free.projectById(projectId);
+    vm.warp(block.timestamp + 6 days);
+    vm.prank(client);
+    free.finishProject(projectId);
 
-        assertEq(finished, false);
-        assertEq(free.getClientBalance(projectId), 0.5 ether);
-        assertEq(free.getFreelancerBalance(projectId), 0.5 ether);
+    (, , , , , , , finished, , , ) = free.projectById(projectId);
 
-        vm.warp(block.timestamp + 6 days);
-        vm.prank(freelancer);
-        free.finishProject(projectId);
+    assertEq(free.getClientBalance(projectId), 0 ether);
+    assertEq(free.getFreelancerBalance(projectId), 1 ether);
 
-        (, , , , , , , finished, , , ) = free.projectById(projectId);
+    assertEq(finished, true);
+  }
 
-        assertEq(free.getClientBalance(projectId), 0);
-        assertEq(free.getFreelancerBalance(projectId), 1 ether);
+  // Finish project fail
 
-        assertEq(finished, true);
-    }
+  function testFail_cannotFinishProjectAsNotClientOrFreelancer() public {
+    uint32 projectId = createProject(10 days);
 
-    function test_finishProjectAsClient() public {
-        uint32 projectId = createProject(10 days);
+    vm.prank(client);
+    free.acceptAndStartProject{value: 1 ether}(projectId);
+    vm.warp(block.timestamp + 5 days);
 
-        vm.prank(client);
-        free.acceptAndStartProject{value: 1 ether}(projectId);
-        vm.warp(block.timestamp + 5 days);
+    vm.prank(freelancer);
+    free.claim(projectId);
 
-        vm.prank(freelancer);
-        free.claim(projectId);
+    vm.addr(3);
+    free.finishProject(projectId);
+    vm.expectRevert('Only the client or the freelancer can finish a project');
+  }
 
-        (, , , , , , , bool finished, , , ) = free.projectById(projectId);
+  function testFail_cannotFinishProjectIfNotStarted() public {
+    uint32 projectId = createProject(10 days);
 
-        assertEq(finished, false);
-        assertEq(free.getClientBalance(projectId), 0.5 ether);
-        assertEq(free.getFreelancerBalance(projectId), 0.5 ether);
+    vm.prank(freelancer);
+    free.finishProject(projectId);
+    vm.expectRevert('The project has not been started yet');
+  }
 
-        vm.warp(block.timestamp + 6 days);
-        vm.prank(client);
-        free.finishProject(projectId);
+  function testFail_cannotFinishProjectIfFinishedAlready() public {
+    uint32 projectId = createProject(10 days);
 
-        (, , , , , , , finished, , , ) = free.projectById(projectId);
+    vm.prank(client);
+    free.acceptAndStartProject{value: 1 ether}(projectId);
+    vm.warp(block.timestamp + 11 days);
 
-        assertEq(free.getClientBalance(projectId), 0 ether);
-        assertEq(free.getFreelancerBalance(projectId), 1 ether);
+    vm.prank(freelancer);
+    free.claim(projectId);
 
-        assertEq(finished, true);
-    }
+    vm.prank(freelancer);
+    free.finishProject(projectId);
+    vm.expectRevert('The project has already been finished');
+  }
 
-    // Finish project fail
+  function testFail_cannotFinishProjectIfDeadlineNotPassedYet() public {
+    uint32 projectId = createProject(10 days);
 
-    function testFail_cannotFinishProjectAsNotClientOrFreelancer() public {
-        uint32 projectId = createProject(10 days);
+    vm.prank(client);
+    free.acceptAndStartProject{value: 1 ether}(projectId);
 
-        vm.prank(client);
-        free.acceptAndStartProject{value: 1 ether}(projectId);
-        vm.warp(block.timestamp + 5 days);
-
-        vm.prank(freelancer);
-        free.claim(projectId);
-
-        vm.addr(3);
-        free.finishProject(projectId);
-        vm.expectRevert(
-            "Only the client or the freelancer can finish a project"
-        );
-    }
-
-    function testFail_cannotFinishProjectIfNotStarted() public {
-        uint32 projectId = createProject(10 days);
-
-        vm.prank(freelancer);
-        free.finishProject(projectId);
-        vm.expectRevert("The project has not been started yet");
-    }
-
-    function testFail_cannotFinishProjectIfFinishedAlready() public {
-        uint32 projectId = createProject(10 days);
-
-        vm.prank(client);
-        free.acceptAndStartProject{value: 1 ether}(projectId);
-        vm.warp(block.timestamp + 11 days);
-
-        vm.prank(freelancer);
-        free.claim(projectId);
-
-        vm.prank(freelancer);
-        free.finishProject(projectId);
-        vm.expectRevert("The project has already been finished");
-    }
-
-    function testFail_cannotFinishProjectIfDeadlineNotPassedYet() public {
-        uint32 projectId = createProject(10 days);
-
-        vm.prank(client);
-        free.acceptAndStartProject{value: 1 ether}(projectId);
-
-        vm.prank(freelancer);
-        free.finishProject(projectId);
-        vm.expectRevert("The project deadline has not passed yet");
-    }
+    vm.prank(freelancer);
+    free.finishProject(projectId);
+    vm.expectRevert('The project deadline has not passed yet');
+  }
 }

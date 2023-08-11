@@ -1,3 +1,4 @@
+/* eslint-disable no-nested-ternary */
 import { ethers, formatEther } from 'ethers'
 import { Link } from 'react-router-dom'
 import { useAccount, useEnsName } from 'wagmi'
@@ -21,6 +22,7 @@ function ProjectRow({
   freelancer,
   progress,
   started,
+  finished,
 }: IProjectRow) {
   const { address } = useAccount()
   const clientAddress = ethers.getAddress(client)
@@ -51,8 +53,8 @@ function ProjectRow({
             <Text color="black">Client: {ensName || client}</Text>
           )}
         </Box>
-        <Box>
-          {started ? (
+        <Box width="22%">
+          {started && !finished ? (
             <>
               <Text color="black" fontWeight="bold">
                 Progress: {progress < 100 ? progress : 100}%
@@ -65,6 +67,10 @@ function ProjectRow({
                 colorScheme="green"
               />
             </>
+          ) : finished ? (
+            <Text textAlign="center" color="black" fontWeight="bold">
+              Finished
+            </Text>
           ) : (
             userStatus === PROFILES.CLIENT && (
               <Box display="flex" flexDirection="column" gap={2}>

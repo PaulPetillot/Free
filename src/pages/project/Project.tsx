@@ -3,14 +3,27 @@ import { formatEther } from 'ethers'
 import { useParams } from 'react-router-dom'
 import { useAccount } from 'wagmi'
 
-import { Box, Button, Flex, Heading, Spinner, Text } from '@chakra-ui/react'
+import {
+  Box,
+  Button,
+  Flex,
+  Heading,
+  Spinner,
+  Text,
+  useDisclosure,
+} from '@chakra-ui/react'
 
+import ExtensionModal from '../../components/extension-modal/ExtensionModal'
 import Layout from '../../components/layout/Layout'
 import { FREE_METHODS } from '../../utils/constants'
 import { isClientOrFreelancer } from '../../utils/general'
 import useAcceptProject from '../../utils/hooks/useAcceptProject'
+import useCancel from '../../utils/hooks/useCancel'
 import useClaim from '../../utils/hooks/useClaim'
+import useExtend from '../../utils/hooks/useExtend'
+import useFinish from '../../utils/hooks/useFinish'
 import useReadFree from '../../utils/hooks/useReadFree'
+import useReject from '../../utils/hooks/useReject'
 import useWithdraw from '../../utils/hooks/useWithdraw'
 import { PROFILES } from '../../utils/types'
 
@@ -20,6 +33,7 @@ type ProjectProps = {
 
 function Project() {
   const { address } = useAccount()
+  const { isOpen, onOpen, onClose } = useDisclosure()
   const { id } = useParams<ProjectProps>()
 
   const { data, isLoading } = useReadFree(FREE_METHODS.PROJECT_BY_ID, [
@@ -35,6 +49,9 @@ function Project() {
 
   const { claim } = useClaim(Number(id))
   const { withdraw } = useWithdraw(Number(id))
+  const { cancel } = useCancel(Number(id))
+  const { finish } = useFinish(Number(id))
+  const { reject } = useReject(Number(id))
 
   const [
     ,
@@ -55,10 +72,6 @@ function Project() {
   const isDeadlinePassed = deadline && deadline < Date.now() / 1000
 
   const profile = address && isClientOrFreelancer(address, client, freelancer)
-
-  const handleCancel = () => {}
-
-  const handleFinish = () => {}
 
   const handleExtend = () => {}
 
@@ -120,37 +133,38 @@ function Project() {
           </Box>
         </Box>
 
-        <Box display="flex" gap={2}>
-          {started && (
-            <Button colorScheme="green" onClick={() => claim()}>
-              Claim
-            </Button>
-          )}
-          {freelancerBalance && (
-            <Button colorScheme="red" onClick={() => withdraw()}>
-              Withdraw
-            </Button>
-          )}
-          {!finished && started && (
-            <Button colorScheme="red" onClick={handleCancel}>
-              Cancel
-            </Button>
-          )}
-          {started && !finished && !newDeadline && (
-            <Button colorScheme="green" onClick={handleExtend}>
-              Extend
-            </Button>
-          )}
-          {newDeadline && (
-            <Button colorScheme="green" onClick={handleAccept}>
-              Accept Extension
-            </Button>
-          )}
-          {isDeadlinePassed && !finished && started && (
-            <Button colorScheme="green" onClick={handleFinish}>
-              Finish
-            </Button>
-          )}
+        <Box paddingTop={10} display="flex" gap={10}>
+          <Box display="flex" gap={2}>
+            {started && (
+              <Button colorScheme="blue" onClick={() => claim()}>
+                Claim
+              </Button>
+            )}
+            {freelancerBalance && (
+              <Button colorScheme="blue" onClick={() => withdraw()}>
+                Withdraw
+              </Button>
+            )}
+          </Box>
+          <Box display="flex" gap={2}>
+            {isDeadlinePassed && !finished && started && (
+              <Button colorScheme="red" onClick={() => finish()}>
+                Finish
+              </Button>
+            )}
+            {!finished && started && (
+              <Button colorScheme="red" onClick={() => cancel()}>
+                Cancel
+              </Button>
+            )}
+          </Box>
+          <Box display="flex" gap={2}>
+            {started && !finished && !newDeadline && (
+              <Button colorScheme="green" onClick={onOpen}>
+                Extend
+              </Button>
+            )}
+          </Box>
         </Box>
       </Flex>
     </>
@@ -202,27 +216,43 @@ function Project() {
           </Box>
         </Box>
 
-        <Box display="flex" gap={2}>
+        <Box paddingTop={10} display="flex" gap={10}>
           {!started && (
-            <Button colorScheme="green" onClick={() => acceptContract()}>
-              Accept
-            </Button>
+            <Box display="flex" gap={2}>
+              <Button colorScheme="blue" onClick={() => acceptContract()}>
+                Accept
+              </Button>
+
+              <Button colorScheme="red" onClick={() => reject()}>
+                Reject
+              </Button>
+            </Box>
           )}
-          {!started && (
-            <Button colorScheme="red" onClick={handleCancel}>
-              Reject
-            </Button>
-          )}
-          {started && !finished && (
-            <Button colorScheme="red" onClick={handleCancel}>
-              Cancel
-            </Button>
-          )}
-          {started && !finished && isDeadlinePassed && (
-            <Button colorScheme="green" onClick={handleFinish}>
-              Finish
-            </Button>
-          )}
+
+          <Box display="flex" gap={2}>
+            {started && !finished && isDeadlinePassed && (
+              <Button colorScheme="red" onClick={() => finish()}>
+                Finish
+              </Button>
+            )}
+            {started && !finished && (
+              <Button
+                colorScheme="red"
+                onClick={() => {
+                  cancel()
+                }}
+              >
+                Cancel
+              </Button>
+            )}
+          </Box>
+          <Box display="flex" gap={2}>
+            {newDeadline && (
+              <Button colorScheme="green" onClick={handleAccept}>
+                Accept Extension
+              </Button>
+            )}
+          </Box>
         </Box>
       </Flex>
     </>
@@ -253,6 +283,11 @@ function Project() {
         )}
         {/* eslint-enable no-nested-ternary */}
       </Box>
+      <ExtensionModal
+        currentDeadline={deadline}
+        isOpen={isOpen}
+        onClose={onClose}
+      />
     </Layout>
   )
 }
