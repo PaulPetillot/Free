@@ -1,7 +1,8 @@
 /* eslint-disable no-nested-ternary */
 import { formatEther } from 'ethers'
+import { useState } from 'react'
 import { useParams } from 'react-router-dom'
-import { useAccount } from 'wagmi'
+import { useAccount, useContractEvent } from 'wagmi'
 
 import {
   Box,
@@ -11,16 +12,22 @@ import {
   Spinner,
   Text,
   useDisclosure,
+  useToast,
 } from '@chakra-ui/react'
 
+import { abi as freeAbi } from '../../../foundry/out/Free.sol/Free.json'
 import ExtensionModal from '../../components/extension-modal/ExtensionModal'
 import Layout from '../../components/layout/Layout'
-import { FREE_METHODS } from '../../utils/constants'
+import {
+  FREE_CONTRACT_ADDRESS,
+  FREE_EVENTS,
+  FREE_METHODS,
+} from '../../utils/constants'
 import { isClientOrFreelancer } from '../../utils/general'
+import useAcceptExtend from '../../utils/hooks/useAcceptExtend'
 import useAcceptProject from '../../utils/hooks/useAcceptProject'
 import useCancel from '../../utils/hooks/useCancel'
 import useClaim from '../../utils/hooks/useClaim'
-import useExtend from '../../utils/hooks/useExtend'
 import useFinish from '../../utils/hooks/useFinish'
 import useReadFree from '../../utils/hooks/useReadFree'
 import useReject from '../../utils/hooks/useReject'
@@ -32,7 +39,18 @@ type ProjectProps = {
 }
 
 function Project() {
+  const [loading, setLoading] = useState({
+    claim: false,
+    withdraw: false,
+    cancel: false,
+    finish: false,
+    reject: false,
+    acceptContract: false,
+    acceptExtension: false,
+    proposeExtension: false,
+  })
   const { address } = useAccount()
+  const toast = useToast()
   const { isOpen, onOpen, onClose } = useDisclosure()
   const { id } = useParams<ProjectProps>()
 
@@ -54,10 +72,10 @@ function Project() {
   const { reject } = useReject(Number(id))
 
   const [
-    ,
+    projectId,
     quote,
     deadline,
-    lastClaimed,
+    ,
     newDeadline,
     newQuote,
     started,
@@ -68,15 +86,205 @@ function Project() {
   ] = data || []
 
   const { acceptContract } = useAcceptProject(quote, Number(id))
+  const { acceptExtension } = useAcceptExtend(newQuote, Number(id))
 
   const isDeadlinePassed = deadline && deadline < Date.now() / 1000
 
   const profile = address && isClientOrFreelancer(address, client, freelancer)
 
-  const handleExtend = () => {}
+  // handle interactions
 
-  const handleAccept = () => {}
+  const handleClaim = () => {
+    setLoading((prevState) => ({ ...prevState, claim: true }))
+    claim()
+  }
 
+  const handleWithdraw = () => {
+    setLoading((prevState) => ({ ...prevState, withdraw: true }))
+    withdraw()
+  }
+
+  const handleCancel = () => {
+    setLoading((prevState) => ({ ...prevState, cancel: true }))
+    cancel()
+  }
+
+  const handleFinish = () => {
+    setLoading((prevState) => ({ ...prevState, finish: true }))
+    finish()
+  }
+
+  const handleReject = () => {
+    setLoading((prevState) => ({ ...prevState, reject: true }))
+    reject()
+  }
+
+  const handleAcceptContract = () => {
+    setLoading((prevState) => ({ ...prevState, acceptContract: true }))
+    acceptContract()
+  }
+
+  const handleAcceptExtension = () => {
+    setLoading((prevState) => ({ ...prevState, acceptExtension: true }))
+    acceptExtension()
+  }
+
+  const handleOpenModal = () => {
+    setLoading((prevState) => ({ ...prevState, proposeExtension: true }))
+    onOpen()
+  }
+
+  const handleCloseModal = () => {
+    setLoading((prevState) => ({ ...prevState, proposeExtension: false }))
+    onClose()
+  }
+  // Events listeners
+
+  const unwatchClaim = useContractEvent({
+    address: FREE_CONTRACT_ADDRESS,
+    abi: freeAbi,
+    eventName: FREE_EVENTS.FUNDS_CLAIMED,
+    listener() {
+      toast({
+        title: 'Funds claimed!',
+        description: 'The funds have been claimed successfully.',
+        status: 'success',
+        duration: 5000,
+        isClosable: true,
+      })
+
+      setLoading((prevState) => ({ ...prevState, claim: false }))
+      unwatchClaim?.()
+    },
+  })
+
+  const unwatchWithdraw = useContractEvent({
+    address: FREE_CONTRACT_ADDRESS,
+    abi: freeAbi,
+    eventName: FREE_EVENTS.FUNDS_WITHDRAWN,
+    listener() {
+      toast({
+        title: 'Funds withdrawn!',
+        description: 'The funds have been withdrawn successfully.',
+        status: 'success',
+        duration: 5000,
+        isClosable: true,
+      })
+
+      setLoading((prevState) => ({ ...prevState, withdraw: false }))
+      unwatchWithdraw?.()
+    },
+  })
+
+  const unwatchCancel = useContractEvent({
+    address: FREE_CONTRACT_ADDRESS,
+    abi: freeAbi,
+    eventName: FREE_EVENTS.PROJECT_CANCELLED,
+    listener() {
+      toast({
+        title: 'Project cancelled!',
+        description: 'The funds have been sent to both parties successfully.',
+        status: 'success',
+        duration: 5000,
+        isClosable: true,
+      })
+
+      setLoading((prevState) => ({ ...prevState, cancel: false }))
+      unwatchCancel?.()
+    },
+  })
+
+  const unwatchFinish = useContractEvent({
+    address: FREE_CONTRACT_ADDRESS,
+    abi: freeAbi,
+    eventName: FREE_EVENTS.PROJECT_FINISHED,
+    listener() {
+      toast({
+        title: 'Project ended!',
+        description: 'The funds have been sent to the freelancer successfully.',
+        status: 'success',
+        duration: 5000,
+        isClosable: true,
+      })
+
+      setLoading((prevState) => ({ ...prevState, finish: false }))
+      unwatchFinish?.()
+    },
+  })
+
+  const unwatchReject = useContractEvent({
+    address: FREE_CONTRACT_ADDRESS,
+    abi: freeAbi,
+    eventName: FREE_EVENTS.PROJECT_REJECTED,
+    listener() {
+      toast({
+        title: 'Project rejected!',
+        description: 'The project has been rejected successfully.',
+        status: 'success',
+        duration: 5000,
+        isClosable: true,
+      })
+
+      setLoading((prevState) => ({ ...prevState, reject: false }))
+      unwatchReject?.()
+    },
+  })
+
+  const unwatchAcceptContract = useContractEvent({
+    address: FREE_CONTRACT_ADDRESS,
+    abi: freeAbi,
+    eventName: FREE_EVENTS.PROJECT_STARTED,
+    listener() {
+      toast({
+        title: 'Project started!',
+        description:
+          "The funds have been sent to the project's balance successfully.",
+        status: 'success',
+        duration: 5000,
+        isClosable: true,
+      })
+
+      setLoading((prevState) => ({ ...prevState, acceptContract: false }))
+      unwatchAcceptContract?.()
+    },
+  })
+
+  const unwatchAcceptExtension = useContractEvent({
+    address: FREE_CONTRACT_ADDRESS,
+    abi: freeAbi,
+    eventName: FREE_EVENTS.DEADLINE_EXTENDED,
+    listener() {
+      toast({
+        title: 'Project extended!',
+        description: "The project's deadline has been extended successfully.",
+        status: 'success',
+        duration: 5000,
+        isClosable: true,
+      })
+
+      setLoading((prevState) => ({ ...prevState, acceptExtension: false }))
+      unwatchAcceptExtension?.()
+    },
+  })
+
+  const unwatchProposeExtension = useContractEvent({
+    address: FREE_CONTRACT_ADDRESS,
+    abi: freeAbi,
+    eventName: FREE_EVENTS.NEW_DEADLINE_PROPOSED,
+    listener() {
+      toast({
+        title: 'Extension proposed!',
+        description: "It's waiting for the client's approval.",
+        status: 'success',
+        duration: 5000,
+        isClosable: true,
+      })
+
+      setLoading((prevState) => ({ ...prevState, proposeExtension: false }))
+      unwatchProposeExtension?.()
+    },
+  })
+  // The panel shown to the user depends on the profile
   const freelancerPanel = (
     <>
       {started ? (
@@ -136,32 +344,52 @@ function Project() {
         <Box paddingTop={10} display="flex" gap={10}>
           <Box display="flex" gap={2}>
             {started && (
-              <Button colorScheme="blue" onClick={() => claim()}>
+              <Button
+                isLoading={loading.claim}
+                colorScheme="blue"
+                onClick={handleClaim}
+              >
                 Claim
               </Button>
             )}
             {freelancerBalance && (
-              <Button colorScheme="blue" onClick={() => withdraw()}>
+              <Button
+                isLoading={loading.withdraw}
+                colorScheme="blue"
+                onClick={handleWithdraw}
+              >
                 Withdraw
               </Button>
             )}
           </Box>
           <Box display="flex" gap={2}>
             {isDeadlinePassed && !finished && started && (
-              <Button colorScheme="red" onClick={() => finish()}>
+              <Button
+                isLoading={loading.finish}
+                colorScheme="red"
+                onClick={handleFinish}
+              >
                 Finish
               </Button>
             )}
             {!finished && started && (
-              <Button colorScheme="red" onClick={() => cancel()}>
+              <Button
+                isLoading={loading.cancel}
+                colorScheme="red"
+                onClick={handleCancel}
+              >
                 Cancel
               </Button>
             )}
           </Box>
           <Box display="flex" gap={2}>
             {started && !finished && !newDeadline && (
-              <Button colorScheme="green" onClick={onOpen}>
-                Extend
+              <Button
+                isLoading={loading.proposeExtension}
+                colorScheme="green"
+                onClick={handleOpenModal}
+              >
+                Propose Extension
               </Button>
             )}
           </Box>
@@ -198,7 +426,7 @@ function Project() {
             </Text>
             {clientBalance && (
               <Text color="gray.600" fontSize="lg">
-                Balance: {formatEther(clientBalance)} ETH
+                Balance left: {formatEther(clientBalance)} ETH
               </Text>
             )}
           </Box>
@@ -207,23 +435,53 @@ function Project() {
               Freelancer: {freelancer}
             </Text>
             <Text
-              color={started ? 'green.500' : finished ? 'red.500' : 'gray.500'}
+              color={
+                started && !finished
+                  ? 'green.500'
+                  : finished
+                  ? 'red.500'
+                  : 'gray.500'
+              }
               fontSize="lg"
             >
               Status:{' '}
-              {started ? 'Started' : finished ? 'Finished' : 'Not started'}
+              {started && !finished
+                ? 'Started'
+                : finished
+                ? 'Finished'
+                : 'Not started'}
             </Text>
           </Box>
         </Box>
 
-        <Box paddingTop={10} display="flex" gap={10}>
+        {newDeadline && (
+          <Box
+            justifyContent="center"
+            alignContent="center"
+            backgroundColor="gray.100"
+            p={3}
+            borderRadius={5}
+            display="flex"
+            gap={1}
+            boxShadow="md"
+          >
+            <Text fontWeight="semibold " color="gray.600" fontSize="lg">
+              New Deadline for the{' '}
+              {new Date(Number(newDeadline) * 1000).toLocaleString()} proposed!
+              It requires an additional payment of{' '}
+              {newQuote && formatEther(newQuote)} ETH.
+            </Text>
+          </Box>
+        )}
+
+        <Box paddingTop={5} display="flex" gap={10}>
           {!started && (
             <Box display="flex" gap={2}>
-              <Button colorScheme="blue" onClick={() => acceptContract()}>
+              <Button colorScheme="blue" onClick={handleAcceptContract}>
                 Accept
               </Button>
 
-              <Button colorScheme="red" onClick={() => reject()}>
+              <Button colorScheme="red" onClick={handleReject}>
                 Reject
               </Button>
             </Box>
@@ -231,24 +489,19 @@ function Project() {
 
           <Box display="flex" gap={2}>
             {started && !finished && isDeadlinePassed && (
-              <Button colorScheme="red" onClick={() => finish()}>
+              <Button colorScheme="red" onClick={handleFinish}>
                 Finish
               </Button>
             )}
             {started && !finished && (
-              <Button
-                colorScheme="red"
-                onClick={() => {
-                  cancel()
-                }}
-              >
+              <Button colorScheme="red" onClick={handleCancel}>
                 Cancel
               </Button>
             )}
           </Box>
           <Box display="flex" gap={2}>
             {newDeadline && (
-              <Button colorScheme="green" onClick={handleAccept}>
+              <Button colorScheme="green" onClick={handleAcceptExtension}>
                 Accept Extension
               </Button>
             )}
@@ -286,7 +539,8 @@ function Project() {
       <ExtensionModal
         currentDeadline={deadline}
         isOpen={isOpen}
-        onClose={onClose}
+        onClose={handleCloseModal}
+        id={projectId}
       />
     </Layout>
   )

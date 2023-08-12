@@ -1,4 +1,3 @@
-import { parseEther } from 'ethers'
 import React, { useState } from 'react'
 
 import {
@@ -13,34 +12,41 @@ import {
   ModalFooter,
   ModalHeader,
   ModalOverlay,
+  useToast,
 } from '@chakra-ui/react'
+
+import useExtend from '../../utils/hooks/useExtend'
 
 interface IExtensionModalProps {
   isOpen: boolean
   onClose: () => void
   currentDeadline: number
+  id: number
 }
 
 function ExtensionModal({
   isOpen,
   onClose,
   currentDeadline,
+  id,
 }: IExtensionModalProps) {
   const initialRef = React.useRef(null)
   const finalRef = React.useRef(null)
-  const deadlineDatePlusOneDay = new Date(
-    Number(currentDeadline) * 1000 + 86400000
-  )
 
   const [newDeadline, setNewDeadline] = useState('')
   const [amountToAdd, setAmountToAdd] = useState('')
 
-  const handleExtension = () => {
-    const newDeadlineUnix = new Date(newDeadline).getTime() / 1000
-    const amountToAddInWei = parseEther(amountToAdd)
+  const { extend } = useExtend(new Date(newDeadline), Number(amountToAdd), id)
 
-    console.log('newDeadlineUnix', newDeadlineUnix)
-    console.log('amountToAddInWei', amountToAddInWei)
+  if (!currentDeadline) return null
+
+  const deadlineDatePlusOneDay = new Date(
+    Number(currentDeadline) * 1000 + 86400000
+  )
+
+  const handleExtension = () => {
+    extend()
+    onClose()
   }
 
   return (

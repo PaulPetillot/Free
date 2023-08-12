@@ -11,7 +11,7 @@ const useReject = (id?: number) => {
   } = useContractWrite({
     address: FREE_CONTRACT_ADDRESS,
     abi: freeAbi,
-    functionName: FREE_METHODS.WITHDRAW,
+    functionName: FREE_METHODS.REJECT_PROJECT,
     args: [id],
   })
 

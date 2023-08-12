@@ -16,7 +16,11 @@ import {
 
 import { abi as freeAbi } from '../../../foundry/out/Free.sol/Free.json'
 import Layout from '../../components/layout/Layout'
-import { FREE_CONTRACT_ADDRESS, FREE_METHODS } from '../../utils/constants'
+import {
+  FREE_CONTRACT_ADDRESS,
+  FREE_EVENTS,
+  FREE_METHODS,
+} from '../../utils/constants'
 import ROUTES from '../../utils/routes'
 
 interface FormData {
@@ -102,7 +106,7 @@ function CreateProject() {
   useContractEvent({
     address: FREE_CONTRACT_ADDRESS,
     abi: freeAbi,
-    eventName: 'ProjectCreated',
+    eventName: FREE_EVENTS.PROJECT_CREATED,
     listener() {
       toast({
         title: 'Project created',

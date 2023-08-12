@@ -1,5 +1,5 @@
 export const FREE_CONTRACT_ADDRESS =
-  '0x275aA836f153F8839Fa0E5Abf055d2CEC4bA08eE'
+  '0x4C1bbC15f27E385D0159af95A4dec303B63203B3'
 
 export enum FREE_METHODS {
   // READ
@@ -18,4 +18,16 @@ export enum FREE_METHODS {
   REJECT_PROJECT = 'rejectProject',
   REQUEST_EXTEND_DEADLINE = 'requestExtendDeadline',
   WITHDRAW = 'withdraw',
+}
+
+export enum FREE_EVENTS {
+  PROJECT_CREATED = 'ProjectCreated',
+  PROJECT_STARTED = 'ProjectStarted',
+  PROJECT_FINISHED = 'ProjectFinished',
+  FUNDS_CLAIMED = 'FundsClaimed',
+  FUNDS_WITHDRAWN = 'FundsWithdrawn',
+  NEW_DEADLINE_PROPOSED = 'NewDeadlineProposed',
+  DEADLINE_EXTENDED = 'DeadlineExtended',
+  PROJECT_CANCELLED = 'ProjectCancelled',
+  PROJECT_REJECTED = 'ProjectRejected',
 }

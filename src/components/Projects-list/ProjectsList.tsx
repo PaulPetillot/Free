@@ -1,6 +1,6 @@
 import { useAccount } from 'wagmi'
 
-import { Box, VStack } from '@chakra-ui/react'
+import { Box, Text, VStack } from '@chakra-ui/react'
 
 import { calculateCompletion } from '../../utils/general'
 import { Project as TProject } from '../../utils/types'
@@ -24,12 +24,16 @@ function ProjectsList({ projects }: ProjectsProps) {
   return (
     <Box width={600}>
       {projects.length === 0 ? (
-        <Box>No projects found.</Box>
+        <Box color="black">No projects found.</Box>
       ) : (
         <VStack spacing={4} align="stretch">
           {projectAsFreelancer.length > 0 && (
             <>
-              <Box fontWeight="bold">As Freelancer</Box>
+              <Box>
+                <Text fontWeight="bold" color="black">
+                  As Freelancer
+                </Text>
+              </Box>
               {projectAsFreelancer.map((project: TProject) => (
                 <ProjectRow
                   key={project.id}
@@ -44,7 +48,11 @@ function ProjectsList({ projects }: ProjectsProps) {
           )}
           {projectAsClient.length > 0 && (
             <>
-              <Box fontWeight="bold">As Client</Box>
+              <Box>
+                <Text fontWeight="bold" color="black">
+                  As Client
+                </Text>
+              </Box>
               {projectAsClient.map((project: TProject) => (
                 <ProjectRow
                   key={project.id}
