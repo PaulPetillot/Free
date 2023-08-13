@@ -29,7 +29,8 @@ contract FreeTest is Test {
     projectId = free.createProject(
       1 ether,
       block.timestamp + end,
-      payable(client)
+      payable(client),
+      'test'
     );
   }
 
@@ -48,7 +49,8 @@ contract FreeTest is Test {
       bool finished,
       address payable clientAddress,
       address payable freelancerAddress,
-      uint256 startedAt
+      uint256 startedAt,
+      string memory title
     ) = free.projectById(projectId);
 
     assertEq(projectId, 1);
@@ -63,21 +65,32 @@ contract FreeTest is Test {
     assertEq(clientAddress, client);
     assertEq(freelancerAddress, freelancer);
     assertEq(startedAt, block.timestamp);
+    assertEq(title, 'test');
   }
 
   // Fail create project
   function testFail_CannotAddNoQuote() public {
-    free.createProject(0, block.timestamp + 1 days, payable(freelancer));
+    free.createProject(
+      0,
+      block.timestamp + 1 days,
+      payable(freelancer),
+      'test'
+    );
     vm.expectRevert('Quote must be greater than 0');
   }
 
   function testFail_CannotAddNoDeadline() public {
-    free.createProject(1 ether, 0, payable(freelancer));
+    free.createProject(1 ether, 0, payable(freelancer), 'test');
     vm.expectRevert('Deadline must be in the future');
   }
 
   function testFail_CannotAddNoFreelancer() public {
-    free.createProject(1 ether, block.timestamp + 1 days, payable(address(0)));
+    free.createProject(
+      1 ether,
+      block.timestamp + 1 days,
+      payable(address(0)),
+      'test'
+    );
     vm.expectRevert('Client address must be a valid address');
   }
 
@@ -88,7 +101,7 @@ contract FreeTest is Test {
     vm.prank(client);
     free.acceptAndStartProject{value: 1 ether}(projectId);
 
-    (, , , uint256 lastClaimed, , , bool started, , , , ) = free.projectById(
+    (, , , uint256 lastClaimed, , , bool started, , , , , ) = free.projectById(
       projectId
     );
 
@@ -127,7 +140,7 @@ contract FreeTest is Test {
     vm.prank(client);
     free.rejectProject(projectId);
 
-    (, , , , , , , bool finished, , , ) = free.projectById(projectId);
+    (, , , , , , , bool finished, , , , ) = free.projectById(projectId);
 
     assertEq(finished, true);
   }
@@ -170,7 +183,7 @@ contract FreeTest is Test {
     vm.prank(freelancer);
     free.claim(projectId);
 
-    (, , , uint256 lastClaimed, , , , , , , ) = free.projectById(projectId);
+    (, , , uint256 lastClaimed, , , , , , , , ) = free.projectById(projectId);
 
     uint256 freelancerBalance = free.getFreelancerBalance(projectId);
     uint256 clientBalance = free.getClientBalance(projectId);
@@ -192,7 +205,7 @@ contract FreeTest is Test {
     vm.prank(freelancer);
     free.claim(projectId);
 
-    (, , , uint256 lastClaimed, , , , , , , ) = free.projectById(projectId);
+    (, , , uint256 lastClaimed, , , , , , , , ) = free.projectById(projectId);
 
     uint256 freelancerBalance = free.getFreelancerBalance(projectId);
     uint256 clientBalance = free.getClientBalance(projectId);
@@ -211,7 +224,7 @@ contract FreeTest is Test {
     vm.warp(block.timestamp + 2 days);
     vm.prank(freelancer);
     free.claim(projectId);
-    (, , , uint256 lastClaimed, , , , bool finished, , , ) = free.projectById(
+    (, , , uint256 lastClaimed, , , , bool finished, , , , ) = free.projectById(
       projectId
     );
 
@@ -225,7 +238,7 @@ contract FreeTest is Test {
     vm.warp(block.timestamp + 5 days);
     vm.prank(freelancer);
     free.claim(projectId);
-    (, , , lastClaimed, , , , finished, , , ) = free.projectById(projectId);
+    (, , , lastClaimed, , , , finished, , , , ) = free.projectById(projectId);
 
     freelancerBalance = free.getFreelancerBalance(projectId);
     clientBalance = free.getClientBalance(projectId);
@@ -238,7 +251,7 @@ contract FreeTest is Test {
     vm.warp(block.timestamp + 5 days);
     vm.prank(freelancer);
     free.claim(projectId);
-    (, , , lastClaimed, , , , finished, , , ) = free.projectById(projectId);
+    (, , , lastClaimed, , , , finished, , , , ) = free.projectById(projectId);
 
     freelancerBalance = free.getFreelancerBalance(projectId);
     clientBalance = free.getClientBalance(projectId);
@@ -271,6 +284,7 @@ contract FreeTest is Test {
       bool finished,
       ,
       ,
+      ,
 
     ) = free.projectById(projectId);
 
@@ -295,7 +309,7 @@ contract FreeTest is Test {
     vm.prank(freelancer);
     free.claim(projectId);
 
-    (, quote, deadline, lastClaimed, , , , finished, , , ) = free.projectById(
+    (, quote, deadline, lastClaimed, , , , finished, , , , ) = free.projectById(
       projectId
     );
 
@@ -312,7 +326,7 @@ contract FreeTest is Test {
     vm.prank(freelancer);
     free.claim(projectId);
 
-    (, quote, deadline, lastClaimed, , , , finished, , , ) = free.projectById(
+    (, quote, deadline, lastClaimed, , , , finished, , , , ) = free.projectById(
       projectId
     );
 
@@ -428,7 +442,7 @@ contract FreeTest is Test {
 
     vm.prank(client);
     free.cancelProject(projectId);
-    (, , , , , , , bool finished, , , ) = free.projectById(projectId);
+    (, , , , , , , bool finished, , , , ) = free.projectById(projectId);
 
     assertEq(finished, true);
     assertEq(address(freelancer).balance, 2.5 ether);
@@ -453,7 +467,7 @@ contract FreeTest is Test {
 
     vm.prank(freelancer);
     free.cancelProject(projectId);
-    (, , , , , , , bool finished, , , ) = free.projectById(projectId);
+    (, , , , , , , bool finished, , , , ) = free.projectById(projectId);
 
     assertEq(finished, true);
     assertEq(address(freelancer).balance, 2.5 ether);
@@ -512,7 +526,7 @@ contract FreeTest is Test {
     vm.prank(freelancer);
     free.requestExtendDeadline(projectId, block.timestamp + 15 days, 2 ether);
 
-    (, , , , uint256 newProposedDeadline, uint256 newQuote, , , , , ) = free
+    (, , , , uint256 newProposedDeadline, uint256 newQuote, , , , , , ) = free
       .projectById(projectId);
 
     assertEq(newProposedDeadline, block.timestamp + 15 days);
@@ -576,6 +590,7 @@ contract FreeTest is Test {
       ,
       ,
       ,
+      ,
 
     ) = free.projectById(projectId);
 
@@ -584,7 +599,7 @@ contract FreeTest is Test {
 
     vm.prank(client);
     free.acceptNewDeadline{value: 1 ether}(projectId);
-    (, quote, deadline, , newProposedDeadline, newQuote, , , , , ) = free
+    (, quote, deadline, , newProposedDeadline, newQuote, , , , , , ) = free
       .projectById(projectId);
 
     assertEq(deadline, block.timestamp + 15 days);
@@ -650,7 +665,7 @@ contract FreeTest is Test {
     vm.prank(freelancer);
     free.claim(projectId);
 
-    (, , , , , , , bool finished, , , ) = free.projectById(projectId);
+    (, , , , , , , bool finished, , , , ) = free.projectById(projectId);
 
     assertEq(finished, false);
     assertEq(free.getClientBalance(projectId), 0.5 ether);
@@ -660,7 +675,7 @@ contract FreeTest is Test {
     vm.prank(freelancer);
     free.finishProject(projectId);
 
-    (, , , , , , , finished, , , ) = free.projectById(projectId);
+    (, , , , , , , finished, , , , ) = free.projectById(projectId);
 
     assertEq(free.getClientBalance(projectId), 0);
     assertEq(free.getFreelancerBalance(projectId), 1 ether);
@@ -678,7 +693,7 @@ contract FreeTest is Test {
     vm.prank(freelancer);
     free.claim(projectId);
 
-    (, , , , , , , bool finished, , , ) = free.projectById(projectId);
+    (, , , , , , , bool finished, , , , ) = free.projectById(projectId);
 
     assertEq(finished, false);
     assertEq(free.getClientBalance(projectId), 0.5 ether);
@@ -688,7 +703,7 @@ contract FreeTest is Test {
     vm.prank(client);
     free.finishProject(projectId);
 
-    (, , , , , , , finished, , , ) = free.projectById(projectId);
+    (, , , , , , , finished, , , , ) = free.projectById(projectId);
 
     assertEq(free.getClientBalance(projectId), 0 ether);
     assertEq(free.getFreelancerBalance(projectId), 1 ether);

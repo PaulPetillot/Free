@@ -10,6 +10,7 @@ export interface Project {
   client: string
   freelancer: string
   startedAt: number
+  title: string
 }
 
 export enum PROFILES {

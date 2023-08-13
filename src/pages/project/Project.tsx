@@ -64,6 +64,7 @@ function Project() {
     startedAt: 0,
     freelancerBalance: 0,
     clientBalance: 0,
+    title: '',
   })
 
   const { address } = useAccount()
@@ -83,7 +84,8 @@ function Project() {
       boolean,
       string,
       string,
-      number
+      number,
+      string
     ]
   ) => {
     setData({
@@ -98,6 +100,7 @@ function Project() {
       client: newData[8],
       freelancer: newData[9],
       startedAt: newData[10],
+      title: newData[11],
     })
   }
 
@@ -286,7 +289,7 @@ function Project() {
     eventName: FREE_EVENTS.PROJECT_FINISHED,
     listener(logs) {
       if (
-        formatToAddress(logs[0].topics[1]) !== address?.toLowerCase() ||
+        formatToAddress(logs[0].topics[1]) !== address?.toLowerCase() &&
         formatToAddress(logs[0].topics[2]) !== address?.toLowerCase()
       )
         return
@@ -356,7 +359,7 @@ function Project() {
     eventName: FREE_EVENTS.PROJECT_STARTED,
     listener(logs) {
       if (
-        formatToAddress(logs[0].topics[1]) !== address?.toLowerCase() ||
+        formatToAddress(logs[0].topics[1]) !== address?.toLowerCase() &&
         formatToAddress(logs[0].topics[2]) !== address?.toLowerCase()
       )
         return
@@ -519,7 +522,7 @@ function Project() {
   return (
     <Layout title="">
       <Box p={4}>
-        <Heading color="black">Project {id}</Heading>
+        <Heading color="black">{data.title}</Heading>
         {content}
       </Box>
       <ExtensionModal

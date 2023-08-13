@@ -28,12 +28,14 @@ interface FormData {
   quote: number
   deadline: string
   client: string
+  title: string
 }
 
 interface FormErrors {
   quote?: string
   deadline?: string
   client?: string
+  title?: string
 }
 
 function CreateProject() {
@@ -51,6 +53,7 @@ function CreateProject() {
     quote: 0,
     deadline: '',
     client: '',
+    title: '',
   })
 
   const [formErrors, setFormErrors] = useState<FormErrors>({})
@@ -85,6 +88,10 @@ function CreateProject() {
       errors.client = 'Client address is required'
     }
 
+    if (!formData.title) {
+      errors.title = 'Project title is required'
+    }
+
     if (formData.client && !isAddress(formData.client)) {
       errors.client = 'Client address is invalid'
     }
@@ -101,7 +108,7 @@ function CreateProject() {
     )
 
     write({
-      args: [formattedQuote, deadlineToUnix, formData.client],
+      args: [formattedQuote, deadlineToUnix, formData.client, formData.title],
     })
 
     setLoading(true)
@@ -135,6 +142,22 @@ function CreateProject() {
       {isConnected ? (
         <form onSubmit={handleSubmit}>
           <VStack spacing={4} align="stretch">
+            <FormControl id="title" isInvalid={!!formErrors.title}>
+              <FormLabel color="black">Project Title</FormLabel>
+              <Input
+                type="text"
+                borderColor="black"
+                color="black"
+                placeholder='e.g. "Build a website"'
+                name="title"
+                value={formData.title}
+                onChange={handleInputChange}
+                isRequired
+              />
+              {formErrors.title && (
+                <FormErrorMessage>{formErrors.title}</FormErrorMessage>
+              )}
+            </FormControl>
             <FormControl id="quote" isInvalid={!!formErrors.quote}>
               <FormLabel color="black">Quote (in ether)</FormLabel>
               <Input

@@ -13,6 +13,7 @@ struct Project {
   address payable client;
   address payable freelancer;
   uint256 startedAt;
+  string title;
 }
 
 struct Balances {
@@ -125,7 +126,8 @@ contract Free {
   function createProject(
     uint256 quote,
     uint256 deadline,
-    address payable client
+    address payable client,
+    string memory title
   ) public returns (uint32 projectId) {
     require(quote > 0, 'Quote must be greater than 0');
     require(deadline > block.timestamp, 'Deadline must be in the future');
@@ -144,7 +146,8 @@ contract Free {
       lastClaimed: block.timestamp,
       startedAt: block.timestamp,
       newProposedDeadline: 0,
-      newFreelancerQuote: 0
+      newFreelancerQuote: 0,
+      title: title
     });
 
     projectId = currentId;

@@ -25,6 +25,7 @@ function ProjectRow({
   progress,
   started,
   finished,
+  title,
 }: IProjectRow) {
   const navigate = useNavigate()
   const { address } = useAccount()
@@ -59,7 +60,7 @@ function ProjectRow({
       <RowContainer>
         <Box>
           <Text color="black" fontWeight="bold">
-            ID: {id}
+            {title}
           </Text>
           <Text color="black">Quote: {formatEther(quote)} ETH</Text>
           {userStatus === PROFILES.CLIENT && (
