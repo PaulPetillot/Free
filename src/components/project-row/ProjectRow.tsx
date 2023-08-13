@@ -1,11 +1,13 @@
 /* eslint-disable no-nested-ternary */
 import { ethers, formatEther } from 'ethers'
-import { Link } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import { useAccount, useEnsName } from 'wagmi'
 
 import { Box, Button, Progress, Text } from '@chakra-ui/react'
 
 import { isClientOrFreelancer } from '../../utils/general'
+import useAcceptProject from '../../utils/hooks/useAcceptProject'
+import useReject from '../../utils/hooks/useReject'
 import ROUTES from '../../utils/routes'
 import { PROFILES, Project } from '../../utils/types'
 
@@ -24,9 +26,13 @@ function ProjectRow({
   started,
   finished,
 }: IProjectRow) {
+  const navigate = useNavigate()
   const { address } = useAccount()
   const clientAddress = ethers.getAddress(client)
   const freelancerAddress = ethers.getAddress(freelancer)
+
+  const { acceptContract } = useAcceptProject(quote, id)
+  const { reject } = useReject(id)
 
   const userStatus =
     address && isClientOrFreelancer(address.toString(), client, freelancer)
@@ -37,6 +43,16 @@ function ProjectRow({
         ? (freelancerAddress as `0x${string}`)
         : (clientAddress as `0x${string}`),
   })
+
+  const handleAccept = async () => {
+    acceptContract()
+    navigate(ROUTES.PROJECTS)
+  }
+
+  const handleReject = async () => {
+    reject()
+    navigate(ROUTES.PROJECTS)
+  }
 
   return (
     <Link to={`${ROUTES.PROJECT}/${id}`}>
@@ -74,10 +90,10 @@ function ProjectRow({
           ) : (
             userStatus === PROFILES.CLIENT && (
               <Box display="flex" flexDirection="column" gap={2}>
-                <Button colorScheme="green" size="sm">
+                <Button onClick={handleAccept} colorScheme="green" size="sm">
                   Accept
                 </Button>
-                <Button colorScheme="red" size="sm">
+                <Button onClick={handleReject} colorScheme="red" size="sm">
                   Reject
                 </Button>
               </Box>

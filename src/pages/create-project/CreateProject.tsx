@@ -21,6 +21,7 @@ import {
   FREE_EVENTS,
   FREE_METHODS,
 } from '../../utils/constants'
+import { formatToAddress } from '../../utils/general'
 import ROUTES from '../../utils/routes'
 
 interface FormData {
@@ -37,7 +38,8 @@ interface FormErrors {
 
 function CreateProject() {
   const navigate = useNavigate()
-  const { isConnected } = useAccount()
+  const { isConnected, address } = useAccount()
+  const [loading, setLoading] = useState(false)
   const toast = useToast()
   const { isLoading, write } = useContractWrite({
     address: FREE_CONTRACT_ADDRESS,
@@ -101,13 +103,17 @@ function CreateProject() {
     write({
       args: [formattedQuote, deadlineToUnix, formData.client],
     })
+
+    setLoading(true)
   }
 
   useContractEvent({
     address: FREE_CONTRACT_ADDRESS,
     abi: freeAbi,
     eventName: FREE_EVENTS.PROJECT_CREATED,
-    listener() {
+    listener(logs) {
+      if (formatToAddress(logs[0].topics[2]) !== address?.toLowerCase()) return
+
       toast({
         title: 'Project created',
         description: 'A new project has been created!',
@@ -115,6 +121,8 @@ function CreateProject() {
         duration: 5000,
         isClosable: true,
       })
+
+      setLoading(false)
 
       setTimeout(() => {
         navigate(ROUTES.PROJECTS)
@@ -186,7 +194,7 @@ function CreateProject() {
               boxShadow="md"
               _hover={{ boxShadow: 'lg' }}
               loadingText="Submitting"
-              isLoading={isLoading}
+              isLoading={loading || isLoading}
             >
               Submit
             </Button>

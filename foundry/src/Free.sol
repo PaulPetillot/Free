@@ -50,7 +50,11 @@ contract Free {
     address indexed proposer,
     uint256 newFreelancerQuote
   );
-  event DeadlineExtended(uint32 projectId, uint256 newProposedDeadline);
+  event DeadlineExtended(
+    uint32 projectId,
+    uint256 newProposedDeadline,
+    address indexed accepter
+  );
   event ProjectCancelled(uint32 projectId, address indexed canceller);
   event ProjectRejected(uint32 projectId, address indexed rejecter);
 
@@ -339,6 +343,6 @@ contract Free {
     project.newProposedDeadline = 0;
     project.newFreelancerQuote = 0;
 
-    emit DeadlineExtended(projectId, project.deadline);
+    emit DeadlineExtended(projectId, project.deadline, msg.sender);
   }
 }

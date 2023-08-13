@@ -1,12 +1,11 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 /* eslint-disable no-nested-ternary */
-import { formatEther } from 'ethers'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useParams } from 'react-router-dom'
 import { useAccount, useContractEvent } from 'wagmi'
 
 import {
   Box,
-  Button,
   Flex,
   Heading,
   Spinner,
@@ -18,12 +17,14 @@ import {
 import { abi as freeAbi } from '../../../foundry/out/Free.sol/Free.json'
 import ExtensionModal from '../../components/extension-modal/ExtensionModal'
 import Layout from '../../components/layout/Layout'
+import ClientPanel from '../../components/panels/ClientPanel'
+import FreelancerPanel from '../../components/panels/FreelancerPanel'
 import {
   FREE_CONTRACT_ADDRESS,
   FREE_EVENTS,
   FREE_METHODS,
 } from '../../utils/constants'
-import { isClientOrFreelancer } from '../../utils/general'
+import { formatToAddress, isClientOrFreelancer } from '../../utils/general'
 import useAcceptExtend from '../../utils/hooks/useAcceptExtend'
 import useAcceptProject from '../../utils/hooks/useAcceptProject'
 import useCancel from '../../utils/hooks/useCancel'
@@ -39,6 +40,7 @@ type ProjectProps = {
 }
 
 function Project() {
+  const [targetRerender, setTargetRerender] = useState(0)
   const [loading, setLoading] = useState({
     claim: false,
     withdraw: false,
@@ -49,21 +51,68 @@ function Project() {
     acceptExtension: false,
     proposeExtension: false,
   })
+  const [data, setData] = useState({
+    projectId: 0,
+    quote: '',
+    deadline: 0,
+    newDeadline: 0,
+    newQuote: '',
+    started: false,
+    finished: false,
+    client: '',
+    freelancer: '',
+    startedAt: 0,
+    freelancerBalance: 0,
+    clientBalance: 0,
+  })
+
   const { address } = useAccount()
   const toast = useToast()
   const { isOpen, onOpen, onClose } = useDisclosure()
   const { id } = useParams<ProjectProps>()
 
-  const { data, isLoading } = useReadFree(FREE_METHODS.PROJECT_BY_ID, [
-    Number(id),
-  ])
-  const { data: freelancerBalance } = useReadFree(
-    FREE_METHODS.GET_FREELANCER_BALANCE,
+  const setDataFromResponse = (
+    newData: [
+      number,
+      number,
+      number,
+      number,
+      number,
+      number,
+      boolean,
+      boolean,
+      string,
+      string,
+      number
+    ]
+  ) => {
+    setData({
+      ...data,
+      projectId: newData[0],
+      quote: String(newData[1]),
+      deadline: newData[2],
+      newDeadline: newData[4],
+      newQuote: String(newData[5]),
+      started: newData[6],
+      finished: newData[7],
+      client: newData[8],
+      freelancer: newData[9],
+      startedAt: newData[10],
+    })
+  }
+
+  const {
+    data: projectData,
+    isLoading,
+    refetch: refetchProject,
+  } = useReadFree(FREE_METHODS.PROJECT_BY_ID, [Number(id)])
+
+  const { data: freelancerBalance, refetch: refetchFreelancerBalance } =
+    useReadFree(FREE_METHODS.GET_FREELANCER_BALANCE, [Number(id)])
+  const { data: clientBalance, refetch: refetchClientBalance } = useReadFree(
+    FREE_METHODS.GET_CLIENT_BALANCE,
     [Number(id)]
   )
-  const { data: clientBalance } = useReadFree(FREE_METHODS.GET_CLIENT_BALANCE, [
-    Number(id),
-  ])
 
   const { claim } = useClaim(Number(id))
   const { withdraw } = useWithdraw(Number(id))
@@ -71,26 +120,21 @@ function Project() {
   const { finish } = useFinish(Number(id))
   const { reject } = useReject(Number(id))
 
-  const [
-    projectId,
-    quote,
-    deadline,
-    ,
-    newDeadline,
-    newQuote,
-    started,
-    finished,
-    client,
-    freelancer,
-    startedAt,
-  ] = data || []
+  const { acceptContract } = useAcceptProject(Number(data?.quote), Number(id))
+  const { acceptExtension } = useAcceptExtend(
+    Number(data?.newQuote),
+    Number(id)
+  )
 
-  const { acceptContract } = useAcceptProject(quote, Number(id))
-  const { acceptExtension } = useAcceptExtend(newQuote, Number(id))
+  const isDeadlinePassed = data?.deadline && data?.deadline < Date.now() / 1000
 
-  const isDeadlinePassed = deadline && deadline < Date.now() / 1000
-
-  const profile = address && isClientOrFreelancer(address, client, freelancer)
+  const profile =
+    address &&
+    isClientOrFreelancer(
+      address,
+      String(data?.client),
+      String(data?.freelancer)
+    )
 
   // handle interactions
 
@@ -144,7 +188,9 @@ function Project() {
     address: FREE_CONTRACT_ADDRESS,
     abi: freeAbi,
     eventName: FREE_EVENTS.FUNDS_CLAIMED,
-    listener() {
+    listener(logs) {
+      if (formatToAddress(logs[0].topics[1]) !== address?.toLowerCase()) return
+
       toast({
         title: 'Funds claimed!',
         description: 'The funds have been claimed successfully.',
@@ -154,6 +200,16 @@ function Project() {
       })
 
       setLoading((prevState) => ({ ...prevState, claim: false }))
+      refetchProject().then((res: any) => {
+        setDataFromResponse(res.data)
+        setTargetRerender((prevState) => prevState + 1)
+      })
+      refetchFreelancerBalance().then((res: any) => {
+        setData((prevState) => ({ ...prevState, freelancerBalance: res.data }))
+      })
+      refetchClientBalance().then((res: any) => {
+        setData((prevState) => ({ ...prevState, clientBalance: res.data }))
+      })
       unwatchClaim?.()
     },
   })
@@ -162,7 +218,9 @@ function Project() {
     address: FREE_CONTRACT_ADDRESS,
     abi: freeAbi,
     eventName: FREE_EVENTS.FUNDS_WITHDRAWN,
-    listener() {
+    listener(logs) {
+      if (formatToAddress(logs[0].topics[1]) !== address?.toLowerCase()) return
+
       toast({
         title: 'Funds withdrawn!',
         description: 'The funds have been withdrawn successfully.',
@@ -172,6 +230,19 @@ function Project() {
       })
 
       setLoading((prevState) => ({ ...prevState, withdraw: false }))
+      refetchProject().then((res: any) => {
+        setDataFromResponse(res.data)
+        setTargetRerender((prevState) => prevState + 1)
+      })
+      refetchFreelancerBalance().then((res: any) => {
+        setData((prevState) => ({
+          ...prevState,
+          freelancerBalance: res.data,
+        }))
+      })
+      refetchClientBalance().then((res: any) => {
+        setData((prevState) => ({ ...prevState, clientBalance: res.data }))
+      })
       unwatchWithdraw?.()
     },
   })
@@ -180,7 +251,9 @@ function Project() {
     address: FREE_CONTRACT_ADDRESS,
     abi: freeAbi,
     eventName: FREE_EVENTS.PROJECT_CANCELLED,
-    listener() {
+    listener(logs) {
+      if (formatToAddress(logs[0].topics[1]) !== address?.toLowerCase()) return
+
       toast({
         title: 'Project cancelled!',
         description: 'The funds have been sent to both parties successfully.',
@@ -190,6 +263,19 @@ function Project() {
       })
 
       setLoading((prevState) => ({ ...prevState, cancel: false }))
+      refetchProject().then((res: any) => {
+        setDataFromResponse(res.data)
+        setTargetRerender((prevState) => prevState + 1)
+      })
+      refetchFreelancerBalance().then((res: any) => {
+        setData((prevState) => ({
+          ...prevState,
+          freelancerBalance: res.data,
+        }))
+      })
+      refetchClientBalance().then((res: any) => {
+        setData((prevState) => ({ ...prevState, clientBalance: res.data }))
+      })
       unwatchCancel?.()
     },
   })
@@ -198,7 +284,13 @@ function Project() {
     address: FREE_CONTRACT_ADDRESS,
     abi: freeAbi,
     eventName: FREE_EVENTS.PROJECT_FINISHED,
-    listener() {
+    listener(logs) {
+      if (
+        formatToAddress(logs[0].topics[1]) !== address?.toLowerCase() ||
+        formatToAddress(logs[0].topics[2]) !== address?.toLowerCase()
+      )
+        return
+
       toast({
         title: 'Project ended!',
         description: 'The funds have been sent to the freelancer successfully.',
@@ -208,6 +300,19 @@ function Project() {
       })
 
       setLoading((prevState) => ({ ...prevState, finish: false }))
+      refetchProject().then((res: any) => {
+        setDataFromResponse(res.data)
+        setTargetRerender((prevState) => prevState + 1)
+      })
+      refetchFreelancerBalance().then((res: any) => {
+        setData((prevState) => ({
+          ...prevState,
+          freelancerBalance: res.data,
+        }))
+      })
+      refetchClientBalance().then((res: any) => {
+        setData((prevState) => ({ ...prevState, clientBalance: res.data }))
+      })
       unwatchFinish?.()
     },
   })
@@ -216,7 +321,9 @@ function Project() {
     address: FREE_CONTRACT_ADDRESS,
     abi: freeAbi,
     eventName: FREE_EVENTS.PROJECT_REJECTED,
-    listener() {
+    listener(logs) {
+      if (formatToAddress(logs[0].topics[1]) !== address?.toLowerCase()) return
+
       toast({
         title: 'Project rejected!',
         description: 'The project has been rejected successfully.',
@@ -226,6 +333,19 @@ function Project() {
       })
 
       setLoading((prevState) => ({ ...prevState, reject: false }))
+      refetchProject().then((res: any) => {
+        setDataFromResponse(res.data)
+        setTargetRerender((prevState) => prevState + 1)
+      })
+      refetchFreelancerBalance().then((res: any) => {
+        setData((prevState) => ({
+          ...prevState,
+          freelancerBalance: res.data,
+        }))
+      })
+      refetchClientBalance().then((res: any) => {
+        setData((prevState) => ({ ...prevState, clientBalance: res.data }))
+      })
       unwatchReject?.()
     },
   })
@@ -234,7 +354,13 @@ function Project() {
     address: FREE_CONTRACT_ADDRESS,
     abi: freeAbi,
     eventName: FREE_EVENTS.PROJECT_STARTED,
-    listener() {
+    listener(logs) {
+      if (
+        formatToAddress(logs[0].topics[1]) !== address?.toLowerCase() ||
+        formatToAddress(logs[0].topics[2]) !== address?.toLowerCase()
+      )
+        return
+
       toast({
         title: 'Project started!',
         description:
@@ -245,6 +371,19 @@ function Project() {
       })
 
       setLoading((prevState) => ({ ...prevState, acceptContract: false }))
+      refetchProject().then((res: any) => {
+        setDataFromResponse(res.data)
+        setTargetRerender((prevState) => prevState + 1)
+      })
+      refetchFreelancerBalance().then((res: any) => {
+        setData((prevState) => ({
+          ...prevState,
+          freelancerBalance: res.data,
+        }))
+      })
+      refetchClientBalance().then((res: any) => {
+        setData((prevState) => ({ ...prevState, clientBalance: res.data }))
+      })
       unwatchAcceptContract?.()
     },
   })
@@ -253,7 +392,8 @@ function Project() {
     address: FREE_CONTRACT_ADDRESS,
     abi: freeAbi,
     eventName: FREE_EVENTS.DEADLINE_EXTENDED,
-    listener() {
+    listener(logs) {
+      if (formatToAddress(logs[0].topics[1]) !== address?.toLowerCase()) return
       toast({
         title: 'Project extended!',
         description: "The project's deadline has been extended successfully.",
@@ -263,6 +403,19 @@ function Project() {
       })
 
       setLoading((prevState) => ({ ...prevState, acceptExtension: false }))
+      refetchProject().then((res: any) => {
+        setDataFromResponse(res.data)
+        setTargetRerender((prevState) => prevState + 1)
+      })
+      refetchFreelancerBalance().then((res: any) => {
+        setData((prevState) => ({
+          ...prevState,
+          freelancerBalance: res.data,
+        }))
+      })
+      refetchClientBalance().then((res: any) => {
+        setData((prevState) => ({ ...prevState, clientBalance: res.data }))
+      })
       unwatchAcceptExtension?.()
     },
   })
@@ -271,7 +424,9 @@ function Project() {
     address: FREE_CONTRACT_ADDRESS,
     abi: freeAbi,
     eventName: FREE_EVENTS.NEW_DEADLINE_PROPOSED,
-    listener() {
+    listener(logs) {
+      if (formatToAddress(logs[0].topics[1]) !== address?.toLowerCase()) return
+
       toast({
         title: 'Extension proposed!',
         description: "It's waiting for the client's approval.",
@@ -281,266 +436,97 @@ function Project() {
       })
 
       setLoading((prevState) => ({ ...prevState, proposeExtension: false }))
+      refetchProject().then((res: any) => {
+        setDataFromResponse(res.data)
+        setTargetRerender((prevState) => prevState + 1)
+      })
+      refetchFreelancerBalance().then((res: any) => {
+        setData((prevState) => ({
+          ...prevState,
+          freelancerBalance: res.data,
+        }))
+      })
+      refetchClientBalance().then((res: any) => {
+        setData((prevState) => ({ ...prevState, clientBalance: res.data }))
+      })
       unwatchProposeExtension?.()
     },
   })
-  // The panel shown to the user depends on the profile
-  const freelancerPanel = (
-    <>
-      {started ? (
-        <Text color="gray.600" fontSize="lg">
-          Started at: {new Date(Number(startedAt) * 1000).toLocaleString()}
-        </Text>
-      ) : (
-        <Text color="gray.600" fontSize="lg">
-          Proposed at: {new Date(Number(startedAt) * 1000).toLocaleString()}
-        </Text>
-      )}
-      <Flex flexDirection="column" alignItems="flex-start" gap={5} mt={4}>
-        <Box
-          display="flex"
-          gap={10}
-          alignItems="center"
-          justifyContent="space-between"
-          mt={4}
-        >
-          <Box display="flex" flexDirection="column" gap={1}>
-            <Text color="gray.600" fontSize="lg">
-              Quote: {quote && formatEther(quote)} ETH
-            </Text>
-            <Text color="gray.600" fontSize="lg">
-              Deadline: {new Date(Number(deadline) * 1000).toLocaleString()}
-            </Text>
-            {freelancerBalance && (
-              <Text color="gray.600" fontSize="lg">
-                Balance: {formatEther(freelancerBalance)} ETH
-              </Text>
-            )}
-          </Box>
-          <Box display="flex" flexDirection="column" gap={1}>
-            <Text color="gray.600" fontSize="lg">
-              Client: {client}
-            </Text>
-            <Text
-              color={
-                started && !finished
-                  ? 'green.500'
-                  : finished
-                  ? 'red.500'
-                  : 'gray.500'
-              }
-              fontSize="lg"
-            >
-              Status:{' '}
-              {started && !finished
-                ? 'Started'
-                : finished
-                ? 'Finished'
-                : 'Not started'}
-            </Text>
-          </Box>
-        </Box>
 
-        <Box paddingTop={10} display="flex" gap={10}>
-          <Box display="flex" gap={2}>
-            {started && (
-              <Button
-                isLoading={loading.claim}
-                colorScheme="blue"
-                onClick={handleClaim}
-              >
-                Claim
-              </Button>
-            )}
-            {freelancerBalance && (
-              <Button
-                isLoading={loading.withdraw}
-                colorScheme="blue"
-                onClick={handleWithdraw}
-              >
-                Withdraw
-              </Button>
-            )}
-          </Box>
-          <Box display="flex" gap={2}>
-            {isDeadlinePassed && !finished && started && (
-              <Button
-                isLoading={loading.finish}
-                colorScheme="red"
-                onClick={handleFinish}
-              >
-                Finish
-              </Button>
-            )}
-            {!finished && started && (
-              <Button
-                isLoading={loading.cancel}
-                colorScheme="red"
-                onClick={handleCancel}
-              >
-                Cancel
-              </Button>
-            )}
-          </Box>
-          <Box display="flex" gap={2}>
-            {started && !finished && !newDeadline && (
-              <Button
-                isLoading={loading.proposeExtension}
-                colorScheme="green"
-                onClick={handleOpenModal}
-              >
-                Propose Extension
-              </Button>
-            )}
-          </Box>
-        </Box>
+  useEffect(() => {
+    if (projectData) {
+      setDataFromResponse(projectData)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [projectData])
+
+  let content
+  if (isLoading) {
+    content = (
+      <Flex alignItems="center" justifyContent="center">
+        <Spinner size="xl" />
       </Flex>
-    </>
-  )
-
-  const clientPanel = (
-    <>
-      {started ? (
-        <Text color="gray.600" fontSize="lg">
-          Started at: {new Date(Number(startedAt) * 1000).toLocaleString()}
-        </Text>
+    )
+  } else if (data) {
+    content =
+      profile === PROFILES.FREELANCER ? (
+        <FreelancerPanel
+          quote={data?.quote}
+          deadline={data?.deadline}
+          freelancerBalance={freelancerBalance}
+          client={String(data?.client)}
+          started={Boolean(data?.started)}
+          finished={Boolean(data?.finished)}
+          loading={loading}
+          isDeadlinePassed={Boolean(isDeadlinePassed)}
+          handleClaim={handleClaim}
+          handleWithdraw={handleWithdraw}
+          handleCancel={handleCancel}
+          handleFinish={handleFinish}
+          handleOpenModal={handleOpenModal}
+          startedAt={data?.startedAt}
+          newDeadline={data?.newDeadline}
+          key={targetRerender}
+        />
       ) : (
-        <Text color="gray.600" fontSize="lg">
-          Proposed at: {new Date(Number(startedAt) * 1000).toLocaleString()}
-        </Text>
-      )}
-      <Flex flexDirection="column" alignItems="flex-start" gap={8} mt={4}>
-        <Box
-          display="flex"
-          gap={10}
-          alignItems="center"
-          justifyContent="space-between"
-          mt={4}
-        >
-          <Box display="flex" flexDirection="column" gap={1}>
-            <Text color="gray.600" fontSize="lg">
-              Quote: {quote && formatEther(quote)} ETH
-            </Text>
-            <Text color="gray.600" fontSize="lg">
-              Deadline: {new Date(Number(deadline) * 1000).toLocaleString()}
-            </Text>
-            {clientBalance && (
-              <Text color="gray.600" fontSize="lg">
-                Balance left: {formatEther(clientBalance)} ETH
-              </Text>
-            )}
-          </Box>
-          <Box display="flex" flexDirection="column" gap={1}>
-            <Text color="gray.600" fontSize="lg">
-              Freelancer: {freelancer}
-            </Text>
-            <Text
-              color={
-                started && !finished
-                  ? 'green.500'
-                  : finished
-                  ? 'red.500'
-                  : 'gray.500'
-              }
-              fontSize="lg"
-            >
-              Status:{' '}
-              {started && !finished
-                ? 'Started'
-                : finished
-                ? 'Finished'
-                : 'Not started'}
-            </Text>
-          </Box>
-        </Box>
-
-        {newDeadline && (
-          <Box
-            justifyContent="center"
-            alignContent="center"
-            backgroundColor="gray.100"
-            p={3}
-            borderRadius={5}
-            display="flex"
-            gap={1}
-            boxShadow="md"
-          >
-            <Text fontWeight="semibold " color="gray.600" fontSize="lg">
-              New Deadline for the{' '}
-              {new Date(Number(newDeadline) * 1000).toLocaleString()} proposed!
-              It requires an additional payment of{' '}
-              {newQuote && formatEther(newQuote)} ETH.
-            </Text>
-          </Box>
-        )}
-
-        <Box paddingTop={5} display="flex" gap={10}>
-          {!started && (
-            <Box display="flex" gap={2}>
-              <Button colorScheme="blue" onClick={handleAcceptContract}>
-                Accept
-              </Button>
-
-              <Button colorScheme="red" onClick={handleReject}>
-                Reject
-              </Button>
-            </Box>
-          )}
-
-          <Box display="flex" gap={2}>
-            {started && !finished && isDeadlinePassed && (
-              <Button colorScheme="red" onClick={handleFinish}>
-                Finish
-              </Button>
-            )}
-            {started && !finished && (
-              <Button colorScheme="red" onClick={handleCancel}>
-                Cancel
-              </Button>
-            )}
-          </Box>
-          <Box display="flex" gap={2}>
-            {newDeadline && (
-              <Button colorScheme="green" onClick={handleAcceptExtension}>
-                Accept Extension
-              </Button>
-            )}
-          </Box>
-        </Box>
-      </Flex>
-    </>
-  )
-
-  let panel
-  if (profile === PROFILES.FREELANCER) {
-    panel = freelancerPanel
-  } else if (profile === PROFILES.CLIENT) {
-    panel = clientPanel
+        <ClientPanel
+          quote={data?.quote}
+          deadline={data?.deadline}
+          clientBalance={clientBalance}
+          freelancer={String(data?.freelancer)}
+          started={Boolean(data?.started)}
+          finished={Boolean(data?.finished)}
+          loading={loading}
+          isDeadlinePassed={Boolean(isDeadlinePassed)}
+          handleAcceptContract={handleAcceptContract}
+          handleReject={handleReject}
+          handleCancel={handleCancel}
+          handleFinish={handleFinish}
+          handleAcceptExtension={handleAcceptExtension}
+          startedAt={data?.startedAt}
+          newDeadline={data?.newDeadline}
+          newQuote={data?.newQuote}
+        />
+      )
+  } else {
+    content = (
+      <Text color="gray.600" fontSize="lg">
+        No project found with ID {id}
+      </Text>
+    )
   }
 
   return (
     <Layout title="">
       <Box p={4}>
         <Heading color="black">Project {id}</Heading>
-        {/* eslint-disable no-nested-ternary */}
-        {isLoading ? (
-          <Flex alignItems="center" justifyContent="center">
-            <Spinner size="xl" />
-          </Flex>
-        ) : data ? (
-          panel
-        ) : (
-          <Text color="gray.600" fontSize="lg">
-            No project found with ID {id}
-          </Text>
-        )}
-        {/* eslint-enable no-nested-ternary */}
+        {content}
       </Box>
       <ExtensionModal
-        currentDeadline={deadline}
+        currentDeadline={Number(data?.deadline)}
         isOpen={isOpen}
         onClose={handleCloseModal}
-        id={projectId}
+        id={Number(data?.projectId)}
       />
     </Layout>
   )

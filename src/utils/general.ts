@@ -21,3 +21,10 @@ export const isClientOrFreelancer = (
 
   return null
 }
+
+export const formatToAddress = (addressToFormat: `0x${string}` | undefined) => {
+  if (!addressToFormat) return ''
+  const byteAddress = `0x${addressToFormat.slice(26)}`
+
+  return byteAddress
+}
