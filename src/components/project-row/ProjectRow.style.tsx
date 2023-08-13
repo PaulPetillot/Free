@@ -1,6 +1,6 @@
 import { styled } from 'styled-components'
 
-export const RowContainer = styled.div`
+const RowContainer = styled.div`
   display: flex;
   flex-direction: row;
   align-items: center;
@@ -12,3 +12,5 @@ export const RowContainer = styled.div`
   width: 100%;
   background-color: #fafafa;
 `
+
+export default RowContainer

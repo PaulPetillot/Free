@@ -12,7 +12,6 @@ import {
   ModalFooter,
   ModalHeader,
   ModalOverlay,
-  useToast,
 } from '@chakra-ui/react'
 
 import useExtend from '../../utils/hooks/useExtend'

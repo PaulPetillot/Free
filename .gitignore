@@ -12,7 +12,6 @@ build
 foundry/foundry.toml
 # Compiler files
 foundry/cache/
-foundry/out/
 
 # Ignores development broadcast logs
 !/broadcast

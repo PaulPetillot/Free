@@ -1,4 +1,3 @@
-import 'vite/modulepreload-polyfill'
 import { ConnectKitProvider, getDefaultConfig } from 'connectkit'
 import { createBrowserRouter, RouterProvider } from 'react-router-dom'
 import { configureChains, createConfig, WagmiConfig } from 'wagmi'
