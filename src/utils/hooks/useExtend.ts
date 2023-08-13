@@ -1,8 +1,8 @@
 import { parseEther } from 'ethers'
 import { useContractWrite } from 'wagmi'
 
-import { abi as freeAbi } from '../../../foundry/out/Free.sol/Free.json'
 import { FREE_CONTRACT_ADDRESS, FREE_METHODS } from '../constants'
+import { abi as freeAbi } from '../Free.json'
 
 const useExtend = (newDeadline: Date, amountToAdd: number, id?: number) => {
   const newDeadlineUnix = newDeadline.getTime() / 1000

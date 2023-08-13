@@ -1,7 +1,7 @@
 import { useContractWrite } from 'wagmi'
 
-import { abi as freeAbi } from '../../../foundry/out/Free.sol/Free.json'
 import { FREE_CONTRACT_ADDRESS, FREE_METHODS } from '../constants'
+import { abi as freeAbi } from '../Free.json'
 
 const useAcceptExtend = (newQuote: number, id?: number) => {
   const {

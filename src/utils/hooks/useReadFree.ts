@@ -1,8 +1,8 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { useContractRead } from 'wagmi'
 
-import { abi as freeAbi } from '../../../foundry/out/Free.sol/Free.json'
 import { FREE_CONTRACT_ADDRESS, FREE_METHODS } from '../constants'
+import { abi as freeAbi } from '../Free.json'
 
 type argTypes = [number] | [string]
 

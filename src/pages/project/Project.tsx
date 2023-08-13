@@ -14,7 +14,6 @@ import {
   useToast,
 } from '@chakra-ui/react'
 
-import { abi as freeAbi } from '../../../foundry/out/Free.sol/Free.json'
 import ExtensionModal from '../../components/extension-modal/ExtensionModal'
 import Layout from '../../components/layout/Layout'
 import ClientPanel from '../../components/panels/ClientPanel'
@@ -24,6 +23,7 @@ import {
   FREE_EVENTS,
   FREE_METHODS,
 } from '../../utils/constants'
+import { abi as freeAbi } from '../../utils/Free.json'
 import { formatToAddress, isClientOrFreelancer } from '../../utils/general'
 import useAcceptExtend from '../../utils/hooks/useAcceptExtend'
 import useAcceptProject from '../../utils/hooks/useAcceptProject'

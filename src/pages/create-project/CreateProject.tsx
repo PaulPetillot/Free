@@ -14,13 +14,13 @@ import {
   VStack,
 } from '@chakra-ui/react'
 
-import { abi as freeAbi } from '../../../foundry/out/Free.sol/Free.json'
 import Layout from '../../components/layout/Layout'
 import {
   FREE_CONTRACT_ADDRESS,
   FREE_EVENTS,
   FREE_METHODS,
 } from '../../utils/constants'
+import { abi as freeAbi } from '../../utils/Free.json'
 import { formatToAddress } from '../../utils/general'
 import ROUTES from '../../utils/routes'
 
