@@ -1,3 +1,4 @@
+// eslint-disable-next-line import/no-unresolved
 import { ConnectKitProvider, getDefaultConfig } from 'connectkit'
 import { createBrowserRouter, RouterProvider } from 'react-router-dom'
 import { configureChains, createConfig, WagmiConfig } from 'wagmi'
@@ -23,14 +24,10 @@ const config = createConfig(
     alchemyId: import.meta.env.VITE_ALCHEMY_API_KEY,
     walletConnectProjectId: import.meta.env.VITE_WALLET_CONNECT_API_KEY,
     chains,
-
     // Required
     appName: 'Free',
-
     // Optional
     appDescription: 'Free is a decentralised freelancing platform.',
-    // appUrl: 'https://family.co', // your app's url
-    // appIcon: 'https://family.co/logo.png',
   })
 )
 
