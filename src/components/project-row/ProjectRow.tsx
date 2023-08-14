@@ -11,7 +11,7 @@ import useReject from '../../utils/hooks/useReject'
 import ROUTES from '../../utils/routes'
 import { PROFILES, Project } from '../../utils/types'
 
-import { RowContainer } from './ProjectRow.style'
+import RowContainer from './ProjectRow.style'
 
 interface IProjectRow extends Project {
   progress: number
